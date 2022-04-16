@@ -14,7 +14,7 @@ public class DistributedDBServer {
 
         Executor executor = Executors.newFixedThreadPool(10);
 
-        server.createContext("/test", new DBHandler());
+        server.createContext("/", new DBHandler());
         server.setExecutor(executor);
         server.start();
     }
