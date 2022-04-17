@@ -5,7 +5,7 @@
     <parent>
         <artifactId>registry</artifactId>
         <groupId>io.steve000.distributed-db-project</groupId>
-        <version>1.0</version>
+        <version>2.0.0-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -50,14 +50,33 @@
                     <images>
                         <image>
                             <name>steve000/distributed-db-project/registry:${project.version}</name>
-                            <run>
-                                <ports>
-                                    <port>tomcat.port:8080</port>
-                                </ports>
-                            </run>
+                            <build>
+                                <from>adoptopenjdk/openjdk11</from>
+                                <entryPoint>
+                                    <exec>
+                                        <arg>java</arg>
+                                        <arg>-cp</arg>
+                                        <arg>registry-server-1.0.jar:/maven/*</arg>
+                                        <arg>io.steve000.distributed.db.registry.server.DistributedDBRegistry</arg>
+                                    </exec>
+                                </entryPoint>
+                                <assemblies>
+                                    <assembly>
+                                        <descriptorRef>artifact-with-dependencies</descriptorRef>
+                                    </assembly>
+                                </assemblies>
+                            </build>
                         </image>
                     </images>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>docker-build</id>
+                        <goals>
+                            <goal>build</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
