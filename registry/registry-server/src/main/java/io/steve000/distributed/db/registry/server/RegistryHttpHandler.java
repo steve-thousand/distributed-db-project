@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import io.steve000.distributed.db.registry.api.RegisterRequest;
 import io.steve000.distributed.db.registry.api.RegistryEntry;
+import io.steve000.distributed.db.registry.api.RegistryResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,18 +27,19 @@ public class RegistryHttpHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange httpExchange) throws IOException {
-        logger.info("Request {} {}", httpExchange.getRequestMethod(), httpExchange.getRequestURI());
+        logger.trace("Request {} {}", httpExchange.getRequestMethod(), httpExchange.getRequestURI());
         try {
             if ("GET".equals(httpExchange.getRequestMethod())) {
                 List<RegistryEntry> records = registry.getRecords();
-                byte[] charArray = objectMapper.writeValueAsString(records).getBytes();
+                RegistryResponse response = new RegistryResponse(records);
+                byte[] charArray = objectMapper.writeValueAsString(response).getBytes();
                 httpExchange.sendResponseHeaders(200, charArray.length);
                 httpExchange.getResponseBody().write(charArray, 0, charArray.length);
             } else if ("POST".equals(httpExchange.getRequestMethod())) {
                 InetSocketAddress address = httpExchange.getRemoteAddress();
                 String requestBody = new String(httpExchange.getRequestBody().readAllBytes());
                 RegisterRequest request = objectMapper.readValue(requestBody, RegisterRequest.class);
-                RegistryEntry entry = new RegistryEntry(address.getHostString(), request.getPort());
+                RegistryEntry entry = new RegistryEntry(request.getName(), address.getHostString(), request.getPort());
                 registry.register(entry);
                 httpExchange.sendResponseHeaders(201, 0);
             }
