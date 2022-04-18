@@ -24,22 +24,31 @@ next.
 
 ### version 2.0.0
 
-I would like next to have the ability to have data distributed across more than one instance. So
-that, though I am not making heavy usage of the database, I can write 2 or more key/value pairs, and
-they will be balanced across multiple servers.
+Ok so this was a big one. I got a little carried away with reorganizing the project.
 
-I am curious to know how this kind of balancing can be orchestrated. Is the client responsible for
-knowing which of 2 or more servers to write to? Or is there something server-side that makese that
-decision?
+One of my goals is to be able to spin up a 2 or more nodes that are aware of eachother and able to
+communicate with one another. But I do not want to have to explicitly tell each node about the other
+nodes. This means that nodes need a way of "discovering" one another. I did a little research. There
+are a few ways to do this. The one I have gone with is a simple registry-service. The registry is
+a server that hangs out and receives requests to register nodes. Each node is given the address of
+the registry service on startup. Nodes must register themselves with the registry. Eventually,
+nodes will use the registry service to list all nodes in the cluster to facilitate communication.
 
-My instinct in this case is to keep the client as simple as possible. Perhaps a leader server is
-responsible for knowing the space used on each server, in which case it decides which node to write
-to, and passes client calls onward.
+One of many changes I included here is use of the fabric8 docker maven plugin to build docker
+images. Now I can start a registry container
 
-But before _that_ can happen, I think it is important for nodes in the cluster to be able to be
-discovered. I would like to be able to have 2 or more nodes in my cluster without having to tell each
-node the IP addresses of all other nodes.
+```shell
+docker run steve000/distributed-db-project/registry:2.0.0
+```
 
-To do this I will be using a service registry, a server that is currently only responsible for 
-knowing the location and status of all nodes in a cluster. All nodes are aware of this registry, and
-report themselves, maybe periodically, to the registry.
+Then start a node container, passing the registry address as an argument
+
+```shell
+docker run steve000/distributed-db-project/node:2.0.0 -ra http://172.17.0.2:8080
+```
+
+And the node registers itself with the registry
+
+```shell
+[pool-1-thread-1] INFO io.steve000.distributed.db.registry.server.InMemoryRegistry - Registered node 7a735fec-2a39-471c-9f49-f719f6c5b36b at IP 172.17.0.3:8050
+```
