@@ -1,4 +1,4 @@
-package io.steve000.distributed.db.client;
+package io.steve000.distributed.db.node.client;
 
 import java.io.BufferedReader;
 import java.io.IOException;

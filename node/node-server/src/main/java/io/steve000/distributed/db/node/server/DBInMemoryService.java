@@ -1,4 +1,4 @@
-package io.steve000.distributed.db.server;
+package io.steve000.distributed.db.node.server;
 
 import java.util.HashMap;
 import java.util.Map;

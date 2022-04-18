@@ -10,7 +10,7 @@ Oh, and by the way, don't use this anywhere for any reason.
 
 ## versions
 
-### version 1
+### version 1.0.0
 
 A simple client and server architecture for reading and writing key/value pairs. Data is stored only
 in memory. Persistence will come in later version.
@@ -22,7 +22,7 @@ just using some native java classes for server/http stuff.
 This is hardly a database and certainly not distributed, but making it persistent and consistent is
 next.
 
-### version 2
+### version 2.0.0
 
 I would like next to have the ability to have data distributed across more than one instance. So
 that, though I am not making heavy usage of the database, I can write 2 or more key/value pairs, and

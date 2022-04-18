@@ -1,9 +1,10 @@
-package io.steve000.distributed.db.server;
+package io.steve000.distributed.db.node.server;
 
 import com.sun.net.httpserver.HttpServer;
 import io.steve000.distributed.db.registry.client.RegistryClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import picocli.CommandLine;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -15,7 +16,9 @@ public class DistributedDBServer {
     private static final Logger logger = LoggerFactory.getLogger(DistributedDBServer.class);
 
     public static void main(String args[]) throws IOException {
-        HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 8080), 0);
+        DBArgs dbArgs = CommandLine.populateCommand(new DBArgs(), args);
+
+        HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
 
         Executor executor = Executors.newFixedThreadPool(10);
 
@@ -25,8 +28,8 @@ public class DistributedDBServer {
 
         logger.info("Started DB server.");
 
-        RegistryClient registryClient = new RegistryClient("http://localhost:8050");
-        registryClient.register(8060);
+        RegistryClient registryClient = new RegistryClient(dbArgs.registryAddress);
+        registryClient.register(dbArgs.adminPort);
     }
 
 }

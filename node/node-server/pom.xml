@@ -36,4 +36,47 @@
         </dependency>
     </dependencies>
 
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>io.fabric8</groupId>
+                <artifactId>docker-maven-plugin</artifactId>
+                <configuration>
+                    <images>
+                        <image>
+                            <name>steve000/distributed-db-project/node:${project.version}</name>
+                            <build>
+                                <from>adoptopenjdk/openjdk11</from>
+                                <ports>
+                                    <port>8080</port>
+                                </ports>
+                                <entryPoint>
+                                    <exec>
+                                        <arg>java</arg>
+                                        <arg>-cp</arg>
+                                        <arg>${build.finalName}:/maven/*</arg>
+                                        <arg>io.steve000.distributed.db.node.server.DistributedDBServer</arg>
+                                    </exec>
+                                </entryPoint>
+                                <assemblies>
+                                    <assembly>
+                                        <descriptorRef>artifact-with-dependencies</descriptorRef>
+                                    </assembly>
+                                </assemblies>
+                            </build>
+                        </image>
+                    </images>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>docker-build</id>
+                        <goals>
+                            <goal>build</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
 </project>

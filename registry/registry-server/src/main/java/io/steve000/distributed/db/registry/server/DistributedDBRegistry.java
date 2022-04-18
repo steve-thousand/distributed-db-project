@@ -14,7 +14,7 @@ public class DistributedDBRegistry {
     private static final Logger logger = LoggerFactory.getLogger(DistributedDBRegistry.class);
 
     public static void main(String args[]) throws IOException {
-        HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 8050), 0);
+        HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
 
         Executor executor = Executors.newFixedThreadPool(10);
 

@@ -52,11 +52,14 @@
                             <name>steve000/distributed-db-project/registry:${project.version}</name>
                             <build>
                                 <from>adoptopenjdk/openjdk11</from>
+                                <ports>
+                                    <port>8080</port>
+                                </ports>
                                 <entryPoint>
                                     <exec>
                                         <arg>java</arg>
                                         <arg>-cp</arg>
-                                        <arg>registry-server-1.0.jar:/maven/*</arg>
+                                        <arg>${build.finalName}:/maven/*</arg>
                                         <arg>io.steve000.distributed.db.registry.server.DistributedDBRegistry</arg>
                                     </exec>
                                 </entryPoint>
