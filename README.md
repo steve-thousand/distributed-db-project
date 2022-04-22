@@ -49,6 +49,17 @@ docker run steve000/distributed-db-project/node:2.0.0 -ra http://172.17.0.2:8080
 
 And the node registers itself with the registry
 
-```shell
+```text
 [pool-1-thread-1] INFO io.steve000.distributed.db.registry.server.InMemoryRegistry - Registered node 7a735fec-2a39-471c-9f49-f719f6c5b36b at IP 172.17.0.3:8050
 ```
+
+### version 2.1.0
+
+Uhhhhh what am I doing this time.
+
+Ultimate goal is to be able to communicate automatically between nodes so that we can distribute
+data. Someone needs to coordinate that work, so I am thinking of
+a [leader and follower pattern](https://martinfowler.com/articles/patterns-of-distributed-systems/leader-follower.html)
+. For that to work, I will implement an election process. Soooooo let's do that!
+
+And since writing that last paragraph I have done some reading and it turns out that algorithm is complicated.
