@@ -4,7 +4,7 @@ public class ReplicationStatus {
 
     private final String name;
 
-    private int generation;
+    private final int generation;
 
     public ReplicationStatus(String name, int generation) {
         this.name = name;
@@ -19,7 +19,7 @@ public class ReplicationStatus {
         return generation;
     }
 
-    public void setGeneration(int generation) {
-        this.generation = generation;
+    public ReplicationStatus increment() {
+        return new ReplicationStatus(name, getGeneration() + 1);
     }
 }

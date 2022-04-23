@@ -1,4 +1,4 @@
-package io.steve000.distributed.db.node.server.cluster.election;
+package io.steve000.distributed.db.node.server.cluster.election.api;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

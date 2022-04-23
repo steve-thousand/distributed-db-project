@@ -2,6 +2,8 @@ package io.steve000.distributed.db.node.server.cluster.election;
 
 import io.steve000.distributed.db.node.server.cluster.Leader;
 import io.steve000.distributed.db.node.server.cluster.ReplicationStatus;
+import io.steve000.distributed.db.node.server.cluster.election.api.ElectionRequest;
+import io.steve000.distributed.db.node.server.cluster.election.api.VoteResponse;
 
 import java.time.LocalDateTime;
 
@@ -15,7 +17,7 @@ public class SimpleElectionService implements ElectionService {
 
     @Override
     public Leader electLeader(ReplicationStatus replicationStatus) throws ElectionException {
-        return electionCoordinator.runElection();
+        return electionCoordinator.runElection(replicationStatus);
     }
 
     @Override

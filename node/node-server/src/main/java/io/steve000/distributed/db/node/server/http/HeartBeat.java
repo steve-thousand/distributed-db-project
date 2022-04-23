@@ -1,31 +1,27 @@
-package io.steve000.distributed.db.node.server.cluster;
+package io.steve000.distributed.db.node.server.http;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-public class Leader {
+public class HeartBeat {
 
     private final String name;
 
-    private final boolean self;
-
-    public Leader(String name, boolean self) {
+    @JsonCreator
+    public HeartBeat(@JsonProperty("name") String name) {
         this.name = name;
-        this.self = self;
     }
 
     public String getName() {
         return name;
     }
 
-    public boolean isSelf() {
-        return self;
-    }
-
     @Override
     public String toString() {
-        return "Leader{" +
+        return "HeartBeat{" +
                 "name='" + name + '\'' +
-                ", self=" + self +
                 '}';
     }
 
@@ -33,12 +29,12 @@ public class Leader {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        Leader leader = (Leader) o;
-        return self == leader.self && Objects.equals(name, leader.name);
+        HeartBeat heartBeat = (HeartBeat) o;
+        return Objects.equals(name, heartBeat.name);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(name, self);
+        return Objects.hash(name);
     }
 }

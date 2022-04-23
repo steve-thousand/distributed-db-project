@@ -2,6 +2,8 @@ package io.steve000.distributed.db.node.server.cluster.election;
 
 import io.steve000.distributed.db.node.server.cluster.Leader;
 import io.steve000.distributed.db.node.server.cluster.ReplicationStatus;
+import io.steve000.distributed.db.node.server.cluster.election.api.ElectionRequest;
+import io.steve000.distributed.db.node.server.cluster.election.api.VoteResponse;
 
 /**
  * Yaaaaay voting.
@@ -17,6 +19,9 @@ public interface ElectionService {
      */
     Leader electLeader(ReplicationStatus replicationStatus) throws ElectionException;
 
+    /**
+     * Respond to an election request.
+     */
     VoteResponse handleElectionRequest(ElectionRequest electionRequest, ReplicationStatus replicationStatus);
 
 }

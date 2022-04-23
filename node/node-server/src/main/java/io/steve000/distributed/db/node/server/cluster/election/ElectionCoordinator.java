@@ -2,6 +2,7 @@ package io.steve000.distributed.db.node.server.cluster.election;
 
 import io.steve000.distributed.db.node.server.cluster.Leader;
 import io.steve000.distributed.db.node.server.cluster.ReplicationStatus;
+import io.steve000.distributed.db.node.server.cluster.election.api.VoteResponse;
 import io.steve000.distributed.db.registry.api.RegistryEntry;
 import io.steve000.distributed.db.registry.api.RegistryResponse;
 import io.steve000.distributed.db.registry.client.RegistryClient;
@@ -19,15 +20,12 @@ public class ElectionCoordinator {
 
     private final RegistryClient registryClient;
 
-    private final ReplicationStatus replicationStatus;
-
     private final ElectionClient electionClient;
 
     private LocalDateTime electionStartTime;
 
-    public ElectionCoordinator(RegistryClient registryClient, ReplicationStatus replicationStatus, ElectionClient electionClient) {
+    public ElectionCoordinator(RegistryClient registryClient, ElectionClient electionClient) {
         this.registryClient = registryClient;
-        this.replicationStatus = replicationStatus;
         this.electionClient = electionClient;
     }
 
@@ -35,13 +33,18 @@ public class ElectionCoordinator {
         return electionStartTime;
     }
 
-    public Leader runElection() throws ElectionException {
+    public Leader runElection(ReplicationStatus replicationStatus) throws ElectionException {
         try {
             electionStartTime = LocalDateTime.now();
             int generation = replicationStatus.getGeneration();
 
             RegistryResponse response = registryClient.getRegistry();
-            List<RegistryEntry> registryEntries = response.getRegistryEntries();
+            List<RegistryEntry> registryEntries = response.getRegistryEntries().stream()
+                    .filter(r -> !r.getName().equals(replicationStatus.getName())).collect(Collectors.toList());
+            if(registryEntries.size() == 0) {
+                return new Leader(replicationStatus.getName(), true);
+            }
+
             VoteResults voteResults = electionClient.sendElectionRequests(registryEntries, electionStartTime);
 
             VoteResponse winningVote = handleVotes(voteResults, generation, electionStartTime);
