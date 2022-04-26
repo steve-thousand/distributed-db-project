@@ -10,4 +10,8 @@ public interface Registry {
 
     List<RegistryEntry> getRecords();
 
+    void registerLeader(String name);
+
+    RegistryEntry getLeader();
+
 }

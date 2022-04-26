@@ -4,24 +4,44 @@ import com.sun.net.httpserver.HttpServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
-public class DistributedDBRegistry {
+public class DistributedDBRegistry implements Closeable {
 
     private static final Logger logger = LoggerFactory.getLogger(DistributedDBRegistry.class);
 
-    public static void main(String args[]) throws IOException {
-        HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
+    private final HttpServer httpServer;
 
+    public DistributedDBRegistry(HttpServer httpServer) {
+        this.httpServer = httpServer;
+    }
+
+    public static void main(String args[]) throws IOException {
+        DistributedDBRegistry server = new DistributedDBRegistry(HttpServer.create(new InetSocketAddress(8080), 0));
+        server.run();
+        server.close();
+    }
+
+    public void run() {
         Executor executor = Executors.newFixedThreadPool(10);
 
-        server.createContext("/", new RegistryHttpHandler(new InMemoryRegistry()));
-        server.setExecutor(executor);
-        server.start();
+        httpServer.createContext("/", new RegistryHttpHandler(new InMemoryRegistry()));
+        httpServer.setExecutor(executor);
+        httpServer.start();
 
         logger.info("Started registry server.");
+    }
+
+    public InetSocketAddress getAddress() {
+        return httpServer.getAddress();
+    }
+
+    @Override
+    public void close() {
+        httpServer.stop(0);
     }
 }

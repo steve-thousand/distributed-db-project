@@ -10,6 +10,8 @@
     <modules>
         <module>registry</module>
         <module>node</module>
+        <module>cluster</module>
+        <module>common</module>
     </modules>
     <properties>
         <maven.compiler.source>11</maven.compiler.source>
