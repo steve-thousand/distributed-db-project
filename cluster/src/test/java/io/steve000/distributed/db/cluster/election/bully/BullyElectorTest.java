@@ -17,9 +17,9 @@ import java.util.concurrent.Executors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
-public class BullyElectionServiceTest {
+public class BullyElectorTest {
 
-    private BullyElectionService electionService;
+    private BullyElector bullyElector;
 
     @Mock
     private RegistryClient registryClient;
@@ -30,7 +30,7 @@ public class BullyElectionServiceTest {
     void beforeEach() throws IOException {
         HttpServer httpServer = HttpServer.create(new InetSocketAddress("0.0.0.0", NetworkUtils.findOpenPort()), 0);
         mockitoAutoCloseable = MockitoAnnotations.openMocks(this);
-        electionService = new BullyElectionService(registryClient, httpServer);
+        bullyElector = new BullyElector(registryClient, httpServer);
     }
 
     @AfterEach
@@ -43,13 +43,12 @@ public class BullyElectionServiceTest {
         int receivingPort = NetworkUtils.findOpenPort();
         HttpServer receivingServer = HttpServer.create(new InetSocketAddress("0.0.0.0", receivingPort), 0);
         RegistryClient receivingClient = mock(RegistryClient.class);
-        BullyElectionService receivingHandler = new BullyElectionService(receivingClient, receivingServer);
+        BullyElector receivingHandler = new BullyElector(receivingClient, receivingServer);
         receivingServer.setExecutor(Executors.newFixedThreadPool(1));
         receivingServer.start();
         VictoryMessage victoryMessage = new VictoryMessage("your new leader");
-        electionService.sendVictoryMessage(new RegistryEntry("test", "0.0.0.0", receivingPort), victoryMessage);
+        bullyElector.sendVictoryMessage(new RegistryEntry("test", "0.0.0.0", receivingPort), victoryMessage);
         assertEquals(victoryMessage, receivingHandler.victoryMessage);
-        verify(receivingClient, times(1)).registerLeader("your new leader");
     }
 
 }

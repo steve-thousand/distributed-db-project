@@ -62,4 +62,22 @@ data. Someone needs to coordinate that work, so I am thinking of
 a [leader and follower pattern](https://martinfowler.com/articles/patterns-of-distributed-systems/leader-follower.html)
 . For that to work, I will implement an election process. Soooooo let's do that!
 
-And since writing that last paragraph I have done some reading and it turns out that algorithm is complicated.
+And since writing that last paragraph I have done some reading and it turns out that elections are
+complicated. I have read a bit
+about [the bully algorithm](https://en.wikipedia.org/wiki/Bully_algorithm) and I think it makes
+sense, but it only seems to describe what to do when a leader fails or no leader has yet been
+determined across the whole cluster. What about when a new node is
+added to a cluster, how does it know who the leader is? I am considering putting the leader
+information into the registry so that any node can easily retrieve that information, but that makes
+me wonder why election is needed if the registry can handle leader information. Can't the registry
+handle appointment of new leaders rather than having nodes elect one?
+
+I am further concerned by my inability to find information on:
+* distributed system registries
+  * https://jack-vanlightly.com/blog/2019/1/27/building-a-simple-distributed-system-the-protocol
+  * https://microservices.io/patterns/service-registry.html
+  * http://javaonfly.blogspot.com/2017/09/deep-dive-to-distributed-service.html
+* how to add nodes to an existing cluster
+
+i should really ask around about that. how does a cluster become aware of itself? how are its boundaries
+technically defined?

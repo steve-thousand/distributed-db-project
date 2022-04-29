@@ -1,8 +1,8 @@
 package io.steve000.distributed.db.cluster;
 
 import com.sun.net.httpserver.HttpServer;
-import io.steve000.distributed.db.cluster.election.ElectionService;
-import io.steve000.distributed.db.cluster.election.bully.BullyElectionService;
+import io.steve000.distributed.db.cluster.election.Elector;
+import io.steve000.distributed.db.cluster.election.bully.BullyElector;
 import io.steve000.distributed.db.common.NetworkUtils;
 import io.steve000.distributed.db.registry.client.RegistryClient;
 import io.steve000.distributed.db.registry.server.DistributedDBRegistry;
@@ -16,6 +16,7 @@ import java.util.UUID;
 import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 public class ClusterIT {
 
@@ -53,9 +54,9 @@ public class ClusterIT {
 
     @Test
     void testNewServersUseExistingLeader() throws IOException {
-        TestServer server1 = new TestServer(registryClient);
-        TestServer server2 = new TestServer(registryClient);
-        TestServer server3 = new TestServer(registryClient);
+        TestServer server1 = new TestServer("test-server-1", registryClient);
+        TestServer server2 = new TestServer("test-server-2", registryClient);
+        TestServer server3 = new TestServer("test-server-3", registryClient);
 
         //test that server1 elects itself leader
         server1.register();
@@ -74,9 +75,9 @@ public class ClusterIT {
     }
 
     @Test
-    void testNewLeaderElectedAfterLeaderDeath() throws IOException {
-        TestServer server1 = new TestServer(registryClient);
-        TestServer server2 = new TestServer(registryClient);
+    void testElectionOccursAfterLeaderDeath() throws IOException, InterruptedException {
+        TestServer server1 = new TestServer("test-server-1", registryClient);
+        TestServer server2 = new TestServer("test-server-2", registryClient);
 
         //test that server1 elects itself leader
         server1.register();
@@ -84,12 +85,45 @@ public class ClusterIT {
 
         //test that server2 uses server1 as leader
         server2.register();
+        assertEquals(server1.getName(), server1.getLeader().getName());
         assertEquals(server1.getName(), server2.getLeader().getName());
 
+        //kill leader
         server1.kill();
 
-        //server2 should now be leader
+        Thread.sleep(500);
         assertEquals(server2.getName(), server2.getLeader().getName());
+    }
+
+    @Test
+    void testElectionOccursAfterLeaderDeath_multipleFollowers() throws IOException, InterruptedException {
+        TestServer server1 = new TestServer("test-server-1", registryClient);
+        TestServer server2 = new TestServer("test-server-2", registryClient);
+        TestServer server3 = new TestServer("test-server-3", registryClient);
+
+        //test that server1 elects itself leader
+        server1.register();
+        assertEquals(server1.getName(), server1.getLeader().getName());
+
+        //test that server2 uses server1 as leader
+        server2.register();
+        assertEquals(server1.getName(), server1.getLeader().getName());
+        assertEquals(server1.getName(), server2.getLeader().getName());
+
+        //test that server3 uses server1 as leader
+        server3.register();
+        assertEquals(server1.getName(), server1.getLeader().getName());
+        assertEquals(server1.getName(), server2.getLeader().getName());
+        assertEquals(server1.getName(), server3.getLeader().getName());
+
+        //kill leader
+        server1.kill();
+
+        Thread.sleep(500);
+        String leader2 = server2.getLeader().getName();
+        String leader3 = server3.getLeader().getName();
+        assertNotEquals(server1.getName(), leader2);
+        assertEquals(leader2, leader3);
     }
 
     private static class TestServer {
@@ -115,9 +149,11 @@ public class ClusterIT {
             this.name = name;
             httpServer = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
 
-            ElectionService electionService = new BullyElectionService(registryClient, httpServer);
+            Elector elector = new BullyElector(registryClient, httpServer);
 
-            clusterService = new SimpleClusterService(electionService, registryClient, name);
+            ClusterConfig config = new ClusterConfig();
+            config.setCusterThreadPeriodMs(100);
+            clusterService = new SimpleClusterService(config, elector, registryClient, name);
             new HttpServerCluster(httpServer, clusterService);
             httpServer.setExecutor(Executors.newFixedThreadPool(2));
             httpServer.start();
@@ -127,9 +163,9 @@ public class ClusterIT {
             clusterService.register(name, port);
         }
 
-        public void kill() {
-            clusterService.unregister();
+        public void kill() throws IOException {
             httpServer.stop(0);
+            clusterService.close();
         }
 
         public String getName() {

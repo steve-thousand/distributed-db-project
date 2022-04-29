@@ -3,7 +3,6 @@ package io.steve000.distributed.db.registry.server;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import io.steve000.distributed.db.common.JSON;
 import io.steve000.distributed.db.registry.api.RegisterRequest;
 import io.steve000.distributed.db.registry.api.RegistryEntry;
 import io.steve000.distributed.db.registry.api.RegistryResponse;
@@ -33,9 +32,6 @@ public class RegistryHttpHandler implements HttpHandler {
             if(httpExchange.getRequestURI().getPath().equals("/")){
                 registry(httpExchange);
             }
-            if(httpExchange.getRequestURI().getPath().equals("/leader")){
-                leader(httpExchange);
-            }
         }catch(Exception e) {
             logger.error("Exception processing request {}", httpExchange.getRequestURI(), e);
             httpExchange.sendResponseHeaders(500, 0);
@@ -58,25 +54,6 @@ public class RegistryHttpHandler implements HttpHandler {
             RegistryEntry entry = new RegistryEntry(request.getName(), address.getHostString(), request.getPort());
             registry.register(entry);
             httpExchange.sendResponseHeaders(201, 0);
-        }
-    }
-
-    private void leader(HttpExchange httpExchange) throws IOException {
-        if ("GET".equals(httpExchange.getRequestMethod())) {
-            RegistryEntry leader = registry.getLeader();
-            if(leader == null) {
-                httpExchange.sendResponseHeaders(404, 0);
-                httpExchange.getResponseBody().close();
-            }else{
-                httpExchange.sendResponseHeaders(200, 0);
-                JSON.OBJECT_MAPPER.writeValue(httpExchange.getResponseBody(), leader);
-                httpExchange.getRequestBody().close();
-            }
-        } else if ("POST".equals(httpExchange.getRequestMethod())) {
-            String name = JSON.OBJECT_MAPPER.readValue(httpExchange.getRequestBody(), String.class);
-            registry.registerLeader(name);
-            httpExchange.sendResponseHeaders(201, 0);
-            httpExchange.getRequestBody().close();
         }
     }
 }

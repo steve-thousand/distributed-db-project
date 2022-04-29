@@ -2,7 +2,6 @@ package io.steve000.distributed.db.registry.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.steve000.distributed.db.registry.api.RegisterRequest;
-import io.steve000.distributed.db.registry.api.RegistryEntry;
 import io.steve000.distributed.db.registry.api.RegistryResponse;
 
 import java.io.IOException;
@@ -44,34 +43,6 @@ public class RegistryClient {
         }
 
         return objectMapper.readValue(con.getInputStream(), RegistryResponse.class);
-    }
-
-    public RegistryEntry getLeader() throws IOException {
-        URL url = new URL(registryHost + "/leader");
-        HttpURLConnection con = (HttpURLConnection) url.openConnection();
-        con.setRequestMethod("GET");
-
-        if(con.getResponseCode() == 404) {
-            return null;
-        }
-        else if(con.getResponseCode() != 200) {
-            throw new RuntimeException("Registry error");
-        }
-
-        return objectMapper.readValue(con.getInputStream(), RegistryEntry.class);
-    }
-
-    public void registerLeader(String name) throws IOException {
-        URL url = new URL(registryHost + "/leader");
-        HttpURLConnection con = (HttpURLConnection) url.openConnection();
-        con.setRequestMethod("POST");
-        con.setDoOutput(true);
-
-        objectMapper.writeValue(con.getOutputStream(), name);
-
-        if(con.getResponseCode() >= 400) {
-            throw new RuntimeException("Registry error");
-        }
     }
 
 }

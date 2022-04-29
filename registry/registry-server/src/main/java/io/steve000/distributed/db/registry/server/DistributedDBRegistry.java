@@ -23,7 +23,6 @@ public class DistributedDBRegistry implements Closeable {
     public static void main(String args[]) throws IOException {
         DistributedDBRegistry server = new DistributedDBRegistry(HttpServer.create(new InetSocketAddress(8080), 0));
         server.run();
-        server.close();
     }
 
     public void run() {
@@ -34,10 +33,6 @@ public class DistributedDBRegistry implements Closeable {
         httpServer.start();
 
         logger.info("Started registry server.");
-    }
-
-    public InetSocketAddress getAddress() {
-        return httpServer.getAddress();
     }
 
     @Override

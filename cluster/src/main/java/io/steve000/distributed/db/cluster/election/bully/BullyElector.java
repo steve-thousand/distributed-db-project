@@ -6,7 +6,7 @@ import com.sun.net.httpserver.HttpServer;
 import io.steve000.distributed.db.cluster.Leader;
 import io.steve000.distributed.db.cluster.ReplicationStatus;
 import io.steve000.distributed.db.cluster.election.ElectionException;
-import io.steve000.distributed.db.cluster.election.ElectionService;
+import io.steve000.distributed.db.cluster.election.Elector;
 import io.steve000.distributed.db.common.JSON;
 import io.steve000.distributed.db.registry.api.RegistryEntry;
 import io.steve000.distributed.db.registry.client.RegistryClient;
@@ -25,15 +25,15 @@ import java.util.stream.Collectors;
 
 import static java.lang.Thread.sleep;
 
-public class BullyElectionService implements ElectionService, HttpHandler {
+public class BullyElector implements Elector, HttpHandler {
 
-    private static final Logger logger = LoggerFactory.getLogger(BullyElectionService.class);
+    private static final Logger logger = LoggerFactory.getLogger(BullyElector.class);
 
     private final RegistryClient registryClient;
 
     VictoryMessage victoryMessage;
 
-    public BullyElectionService(RegistryClient registryClient, HttpServer httpServer) {
+    public BullyElector(RegistryClient registryClient, HttpServer httpServer) {
         this.registryClient = registryClient;
         httpServer.createContext("/cluster/election", this);
     }
@@ -58,7 +58,6 @@ public class BullyElectionService implements ElectionService, HttpHandler {
             sendVictoryMessages(registryEntries.stream()
                     .filter(e -> e.getName().compareTo(replicationStatus.getName()) < 0)
                     .collect(Collectors.toList()), victoryMessage);
-            registryClient.registerLeader(replicationStatus.getName());
             return new Leader(replicationStatus.getName(), true);
         } catch (Exception e) {
             throw new ElectionException(e);
@@ -83,7 +82,8 @@ public class BullyElectionService implements ElectionService, HttpHandler {
                 URL url = new URL("http://" + entry.getHost() + ":" + entry.getPort() + "/cluster/election");
                 HttpURLConnection con = (HttpURLConnection) url.openConnection();
                 con.setRequestMethod("POST");
-                con.setConnectTimeout(5000);
+                con.setDoOutput(true);
+                con.setConnectTimeout(3000);
                 con.getOutputStream().close();
                 return con.getResponseCode() == HttpURLConnection.HTTP_OK;
             })).collect(Collectors.toList());
@@ -92,14 +92,18 @@ public class BullyElectionService implements ElectionService, HttpHandler {
 
             boolean oneAlive = false;
             for (Future<Boolean> aliveResponse : aliveResponses) {
-                if (Boolean.TRUE.equals(aliveResponse.get())) {
-                    oneAlive = true;
-                    break;
+                try {
+                    if (Boolean.TRUE.equals(aliveResponse.get())) {
+                        oneAlive = true;
+                        break;
+                    }
+                }catch(Exception e) {
+                    logger.debug("Error when calling higher nodes", e);
                 }
             }
 
             if (oneAlive) {
-                logger.debug("Received at least one live response, waiting for a victory message from on high.");
+                logger.info("Received at least one live response, waiting for a victory message from on high.");
                 victoryMessageWaitExecutor.shutdown();
                 victoryMessageWaitExecutor.awaitTermination(5, TimeUnit.SECONDS);
                 VictoryMessage victoryMessage = victoryMessageFuture.get();
@@ -107,6 +111,8 @@ public class BullyElectionService implements ElectionService, HttpHandler {
                     logger.debug("Received a victory message! {}", victoryMessage);
                     return new Leader(victoryMessage.getName(), false);
                 }
+            } else {
+                logger.info("Found no live responses in time.");
             }
 
             return null;
