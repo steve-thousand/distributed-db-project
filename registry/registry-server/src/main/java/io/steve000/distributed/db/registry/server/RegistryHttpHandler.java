@@ -29,19 +29,8 @@ public class RegistryHttpHandler implements HttpHandler {
     public void handle(HttpExchange httpExchange) throws IOException {
         logger.trace("Request {} {}", httpExchange.getRequestMethod(), httpExchange.getRequestURI());
         try {
-            if ("GET".equals(httpExchange.getRequestMethod())) {
-                List<RegistryEntry> records = registry.getRecords();
-                RegistryResponse response = new RegistryResponse(records);
-                byte[] charArray = objectMapper.writeValueAsString(response).getBytes();
-                httpExchange.sendResponseHeaders(200, charArray.length);
-                httpExchange.getResponseBody().write(charArray, 0, charArray.length);
-            } else if ("POST".equals(httpExchange.getRequestMethod())) {
-                InetSocketAddress address = httpExchange.getRemoteAddress();
-                String requestBody = new String(httpExchange.getRequestBody().readAllBytes());
-                RegisterRequest request = objectMapper.readValue(requestBody, RegisterRequest.class);
-                RegistryEntry entry = new RegistryEntry(request.getName(), address.getHostString(), request.getPort());
-                registry.register(entry);
-                httpExchange.sendResponseHeaders(201, 0);
+            if(httpExchange.getRequestURI().getPath().equals("/")){
+                registry(httpExchange);
             }
         }catch(Exception e) {
             logger.error("Exception processing request {}", httpExchange.getRequestURI(), e);
@@ -49,5 +38,22 @@ public class RegistryHttpHandler implements HttpHandler {
         }
         httpExchange.getResponseBody().flush();
         httpExchange.getResponseBody().close();
+    }
+
+    private void registry(HttpExchange httpExchange) throws IOException {
+        if ("GET".equals(httpExchange.getRequestMethod())) {
+            List<RegistryEntry> records = registry.getRecords();
+            RegistryResponse response = new RegistryResponse(records);
+            byte[] charArray = objectMapper.writeValueAsString(response).getBytes();
+            httpExchange.sendResponseHeaders(200, charArray.length);
+            httpExchange.getResponseBody().write(charArray, 0, charArray.length);
+        } else if ("POST".equals(httpExchange.getRequestMethod())) {
+            InetSocketAddress address = httpExchange.getRemoteAddress();
+            String requestBody = new String(httpExchange.getRequestBody().readAllBytes());
+            RegisterRequest request = objectMapper.readValue(requestBody, RegisterRequest.class);
+            RegistryEntry entry = new RegistryEntry(request.getName(), address.getHostString(), request.getPort());
+            registry.register(entry);
+            httpExchange.sendResponseHeaders(201, 0);
+        }
     }
 }

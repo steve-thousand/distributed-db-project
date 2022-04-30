@@ -1,14 +1,16 @@
-package io.steve000.distributed.db.node.server;
+package io.steve000.distributed.db.node.server.http;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
+import io.steve000.distributed.db.node.server.db.DBInMemoryService;
+import io.steve000.distributed.db.node.server.db.DBService;
 
 import java.io.IOException;
 import java.net.URI;
 
-public class DBHandler implements HttpHandler {
+public class DBHttpHandler implements HttpHandler {
 
-    private final DBInMemoryService dbService = new DBInMemoryService();
+    private final DBService dbService = new DBInMemoryService();
 
     public void handle(HttpExchange httpExchange) throws IOException {
         if ("GET".equals(httpExchange.getRequestMethod())) {

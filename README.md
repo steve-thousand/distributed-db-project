@@ -49,6 +49,44 @@ docker run steve000/distributed-db-project/node:2.0.0 -ra http://172.17.0.2:8080
 
 And the node registers itself with the registry
 
-```shell
+```text
 [pool-1-thread-1] INFO io.steve000.distributed.db.registry.server.InMemoryRegistry - Registered node 7a735fec-2a39-471c-9f49-f719f6c5b36b at IP 172.17.0.3:8050
 ```
+
+### version 2.1.0
+
+Sorry that this ended up being such a big one. This includes adding a new "cluster" module that
+includes the code that will be used by each node to discover and communicate. Making it its own
+module hopefully will allow it to be used despite what the cluster is used for (data replication,
+distribution, workflows etc...).
+
+Ultimate goal is to be able to communicate automatically between nodes so that we can distribute
+data. Someone needs to coordinate that work, so I am thinking of
+a [leader and follower pattern](https://martinfowler.com/articles/patterns-of-distributed-systems/leader-follower.html)
+. For that to work, I will implement an election process. Soooooo let's do that!
+
+And since writing that last paragraph I have done some reading and it turns out that elections are
+complicated. I have implemented a [bully algorithm](https://en.wikipedia.org/wiki/Bully_algorithm)
+for choosing a leader. On startup, every node waits some period of time to receive heartbeat from a
+leader node. Any node that receives a heartbeat identifies the sending node as the new leader. If it
+receives none in a configured window of time (most likely to happen if it is the first node in the
+cluster), it starts an election process.
+
+The election process works like this:
+
+1. the node that begins the election considers all registered nodes.
+2. if there are any higher-id nodes (currently using alphabetic order of names) they are all
+   pinged for live-ness. if any of those returns a timely response, the node further waits to
+   receive a victory response. if a victory response is received in that time, we have found our
+   leader.
+3. if there are no higher-id live-nodes or we do not hear a victory message from them soon enough,
+   then this node is the leader. all lower-id nodes are sent victory messages.
+
+Of course this requires some changes to other parts of the platform as well. Now that I've entered
+the servers-being-lost territory, the registry and the servers that use it for service discovery
+need some changes to be able to forget nodes, otherwise I'll end up with error logs endlessly.
+
+It wasn't easy and I'm sure there are race conditions lurking there somewhere but I've got it set
+up so that multiple nodes can be started with nothing but a registry parameter, and at run time 
+nodes will discover each-other, and a leader will be chosen. If the leader fails, a new leader
+will be chosen.

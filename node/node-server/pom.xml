@@ -5,7 +5,7 @@
     <parent>
         <artifactId>node</artifactId>
         <groupId>io.steve000.distributed-db-project</groupId>
-        <version>2.0.0</version>
+        <version>2.1.0-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -15,6 +15,11 @@
         <dependency>
             <groupId>io.steve000.distributed-db-project</groupId>
             <artifactId>registry-client</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.steve000.distributed-db-project</groupId>
+            <artifactId>cluster</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -32,6 +37,16 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

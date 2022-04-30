@@ -4,7 +4,7 @@ import picocli.CommandLine;
 
 public class DBArgs {
 
-    @CommandLine.Option(names = "--admin-port", defaultValue = "8050",
+    @CommandLine.Option(names = "--admin-port", defaultValue = "8080",
             description = "Port for administrative actions.")
     int adminPort;
 
