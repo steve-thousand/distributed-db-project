@@ -55,7 +55,10 @@ And the node registers itself with the registry
 
 ### version 2.1.0
 
-Uhhhhh what am I doing this time.
+Sorry that this ended up being such a big one. This includes adding a new "cluster" module that
+includes the code that will be used by each node to discover and communicate. Making it its own
+module hopefully will allow it to be used despite what the cluster is used for (data replication,
+distribution, workflows etc...).
 
 Ultimate goal is to be able to communicate automatically between nodes so that we can distribute
 data. Someone needs to coordinate that work, so I am thinking of
@@ -82,3 +85,8 @@ The election process works like this:
 Of course this requires some changes to other parts of the platform as well. Now that I've entered
 the servers-being-lost territory, the registry and the servers that use it for service discovery
 need some changes to be able to forget nodes, otherwise I'll end up with error logs endlessly.
+
+It wasn't easy and I'm sure there are race conditions lurking there somewhere but I've got it set
+up so that multiple nodes can be started with nothing but a registry parameter, and at run time 
+nodes will discover each-other, and a leader will be chosen. If the leader fails, a new leader
+will be chosen.
