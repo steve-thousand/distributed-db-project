@@ -1,6 +1,7 @@
 package io.steve000.distributed.db.cluster;
 
 import com.sun.net.httpserver.HttpServer;
+import io.steve000.distributed.db.cluster.http.ClusterHttpHandler;
 import io.steve000.distributed.db.common.JSON;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

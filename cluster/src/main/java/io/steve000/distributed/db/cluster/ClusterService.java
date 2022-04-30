@@ -10,10 +10,8 @@ public interface ClusterService extends Closeable {
 
     Leader getLeader();
 
-    void register(String name, int adminPort);
+    void run();
 
     void handleHeartBeat(HeartBeat heartBeat);
-
-    void sendHeartBeats();
 
 }

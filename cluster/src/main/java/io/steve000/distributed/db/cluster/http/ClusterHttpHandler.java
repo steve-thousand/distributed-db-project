@@ -1,7 +1,9 @@
-package io.steve000.distributed.db.cluster;
+package io.steve000.distributed.db.cluster.http;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
+import io.steve000.distributed.db.cluster.ClusterService;
+import io.steve000.distributed.db.cluster.HeartBeat;
 import io.steve000.distributed.db.common.JSON;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

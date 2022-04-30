@@ -37,6 +37,7 @@ public class DistributedDBRegistry implements Closeable {
 
     @Override
     public void close() {
+        logger.info("Shutting down registry server.");
         httpServer.stop(0);
     }
 }

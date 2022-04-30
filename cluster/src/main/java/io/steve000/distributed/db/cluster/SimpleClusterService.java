@@ -2,20 +2,16 @@ package io.steve000.distributed.db.cluster;
 
 import com.sun.net.httpserver.HttpServer;
 import io.steve000.distributed.db.cluster.election.Elector;
-import io.steve000.distributed.db.common.JSON;
-import io.steve000.distributed.db.registry.api.RegistryEntry;
-import io.steve000.distributed.db.registry.api.RegistryResponse;
+import io.steve000.distributed.db.cluster.http.ClusterHttpClient;
+import io.steve000.distributed.db.cluster.http.ClusterHttpHandler;
 import io.steve000.distributed.db.registry.client.RegistryClient;
+import io.steve000.distributed.db.registry.client.RegistryException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -32,22 +28,23 @@ public class SimpleClusterService implements ClusterService {
 
     private final RegistryClient registryClient;
 
+    private final ClusterHttpClient clusterHttpClient;
+
     private ReplicationStatus replicationStatus;
 
     private Leader leader;
 
     private LocalDateTime latestHeartBeat = null;
 
-    private boolean registered = false;
-
     private NodeThread nodeThread;
 
-    public SimpleClusterService(ClusterConfig config, Elector elector, RegistryClient registryClient, String name) {
+    public SimpleClusterService(ClusterConfig config, Elector elector, RegistryClient registryClient, ClusterHttpClient clusterHttpClient, String name) {
         this.config = config;
         this.elector = elector;
         this.registryClient = registryClient;
+        this.clusterHttpClient = clusterHttpClient;
         this.replicationStatus = new ReplicationStatus(name, 0);
-        LATEST_HEARTBEAT_THRESHOLD = Duration.of(config.getCusterThreadPeriodMs() * 3, ChronoUnit.MILLIS);
+        LATEST_HEARTBEAT_THRESHOLD = Duration.of(config.getCusterThreadPeriodMs() * 5, ChronoUnit.MILLIS);
     }
 
     @Override
@@ -77,7 +74,7 @@ public class SimpleClusterService implements ClusterService {
                     }
                 });
                 executorService.shutdown();
-                executorService.awaitTermination(config.getCusterThreadPeriodMs() * 2, TimeUnit.MILLISECONDS);
+                executorService.awaitTermination(config.getCusterThreadPeriodMs() * 5, TimeUnit.MILLISECONDS);
                 if (leader != null) {
                     logger.info("Assigned leader by heartbeat: {}", leader);
                 }
@@ -98,67 +95,27 @@ public class SimpleClusterService implements ClusterService {
     }
 
     @Override
-    public synchronized void register(String name, int adminPort) {
+    public synchronized void run() {
         try {
-            if (registered) {
-                logger.warn("Already registered, cannot register twice.");
-                return;
-            }
-            registered = true;
-            registryClient.register(name, adminPort);
-            getLeader(); //if there is a leader in the cluster, identify it. else we are leader
-            nodeThread = new NodeThread(this, config.getCusterThreadPeriodMs());
+            registryClient.sendRegistryHeartbeat();
+            getLeader(); //prime the leader info before running
+            nodeThread = new NodeThread(this, registryClient, clusterHttpClient, config.getCusterThreadPeriodMs());
             nodeThread.run();
-        } catch (IOException e) {
+        } catch (RegistryException e) {
+            logger.error("Error un startup", e);
             throw new RuntimeException(e);
         }
     }
 
     @Override
     public void handleHeartBeat(HeartBeat heartBeat) {
-        logger.debug("Received leader heartbeat.");
-        if (leader != null && !leader.isSelf()) {
-            logger.info("No longer leader, new leader chosen: {}", leader);
+        logger.debug("Node {} received leader heartbeat from leader {}.", replicationStatus.getName(), heartBeat.getName());
+        if (leader == null || !leader.getName().equals(heartBeat.getName())) {
+            leader = new Leader(heartBeat.getName(), false);
+            logger.info("New leader chosen: {}", leader);
         }
         leader = new Leader(heartBeat.getName(), false);
         latestHeartBeat = LocalDateTime.now();
-    }
-
-    @Override
-    public void sendHeartBeats() {
-        try {
-            logger.debug("Sending heartbeats...");
-            RegistryResponse response = registryClient.getRegistry();
-            List<RegistryEntry> registryEntries = response.getRegistryEntries();
-            ExecutorService executor = Executors.newSingleThreadExecutor();
-            HeartBeat heartBeat = new HeartBeat(replicationStatus.getName());
-            for (RegistryEntry entry : registryEntries) {
-                if (entry.getName().equals(heartBeat.getName())) {
-                    continue;
-                }
-                executor.execute(() -> {
-                    try {
-                        URL url = new URL("http://" + entry.getHost() + ":" + entry.getPort() + "/cluster/heartbeat");
-                        HttpURLConnection con = (HttpURLConnection) url.openConnection();
-                        con.setRequestMethod("POST");
-                        con.setDoOutput(true);
-                        JSON.OBJECT_MAPPER.writeValue(con.getOutputStream(), heartBeat);
-                        int responseCode = con.getResponseCode();
-                        con.getInputStream().close();
-                        if (responseCode != 201) {
-                            throw new IOException("Bad response code: " + responseCode);
-                        }
-                    } catch (IOException e) {
-                        logger.error("Failed sending heartbeat", e);
-                    }
-                });
-            }
-            executor.shutdown();
-            executor.awaitTermination(5, TimeUnit.SECONDS);
-        } catch (IOException | InterruptedException e) {
-            logger.error("Failed sending heartbeats", e);
-            throw new RuntimeException(e);
-        }
     }
 
     private boolean isLeaderLive() {
@@ -174,7 +131,8 @@ public class SimpleClusterService implements ClusterService {
 
     @Override
     public void close() {
-        if(nodeThread != null) {
+        if (nodeThread != null) {
+            logger.info("Shutting down SimpleClusterService.");
             nodeThread.close();
         }
     }

@@ -63,21 +63,22 @@ a [leader and follower pattern](https://martinfowler.com/articles/patterns-of-di
 . For that to work, I will implement an election process. Soooooo let's do that!
 
 And since writing that last paragraph I have done some reading and it turns out that elections are
-complicated. I have read a bit
-about [the bully algorithm](https://en.wikipedia.org/wiki/Bully_algorithm) and I think it makes
-sense, but it only seems to describe what to do when a leader fails or no leader has yet been
-determined across the whole cluster. What about when a new node is
-added to a cluster, how does it know who the leader is? I am considering putting the leader
-information into the registry so that any node can easily retrieve that information, but that makes
-me wonder why election is needed if the registry can handle leader information. Can't the registry
-handle appointment of new leaders rather than having nodes elect one?
+complicated. I have implemented a [bully algorithm](https://en.wikipedia.org/wiki/Bully_algorithm)
+for choosing a leader. On startup, every node waits some period of time to receive heartbeat from a
+leader node. Any node that receives a heartbeat identifies the sending node as the new leader. If it
+receives none in a configured window of time (most likely to happen if it is the first node in the
+cluster), it starts an election process.
 
-I am further concerned by my inability to find information on:
-* distributed system registries
-  * https://jack-vanlightly.com/blog/2019/1/27/building-a-simple-distributed-system-the-protocol
-  * https://microservices.io/patterns/service-registry.html
-  * http://javaonfly.blogspot.com/2017/09/deep-dive-to-distributed-service.html
-* how to add nodes to an existing cluster
+The election process works like this:
 
-i should really ask around about that. how does a cluster become aware of itself? how are its boundaries
-technically defined?
+1. the node that begins the election considers all registered nodes.
+2. if there are any higher-id nodes (currently using alphabetic order of names) they are all
+   pinged for live-ness. if any of those returns a timely response, the node further waits to
+   receive a victory response. if a victory response is received in that time, we have found our
+   leader.
+3. if there are no higher-id live-nodes or we do not hear a victory message from them soon enough,
+   then this node is the leader. all lower-id nodes are sent victory messages.
+
+Of course this requires some changes to other parts of the platform as well. Now that I've entered
+the servers-being-lost territory, the registry and the servers that use it for service discovery
+need some changes to be able to forget nodes, otherwise I'll end up with error logs endlessly.

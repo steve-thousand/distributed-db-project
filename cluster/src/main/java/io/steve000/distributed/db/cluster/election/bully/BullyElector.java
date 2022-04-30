@@ -17,10 +17,7 @@ import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 import static java.lang.Thread.sleep;
@@ -48,12 +45,17 @@ public class BullyElector implements Elector, HttpHandler {
                     .filter(e -> e.getName().compareTo(replicationStatus.getName()) > 0)
                     .collect(Collectors.toList());
 
-            Leader foundHigherLeader = findHigherLeader(higherEntries);
-            if (foundHigherLeader != null) {
-                return foundHigherLeader;
+            if(higherEntries.size() > 0) {
+                Leader foundHigherLeader = findHigherLeader(higherEntries);
+                if (foundHigherLeader != null) {
+                    return foundHigherLeader;
+                }
+                //if we get no responses, all higher nodes are down, and we are the leader! tell everyone
+                logger.info("Found no higher leader, we ({}) are the leader now!", replicationStatus.getName());
+            }else{
+                logger.info("No higher nodes, we ({}) are the leader now!", replicationStatus.getName());
             }
 
-            //if we get no responses, all higher nodes are down, and we are the leader! tell everyone
             VictoryMessage victoryMessage = new VictoryMessage(replicationStatus.getName());
             sendVictoryMessages(registryEntries.stream()
                     .filter(e -> e.getName().compareTo(replicationStatus.getName()) < 0)
@@ -76,6 +78,9 @@ public class BullyElector implements Elector, HttpHandler {
                     sleep(100);
                 }
             });
+            victoryMessageWaitExecutor.shutdown();
+
+            logger.info("Sending election requests to {} higher nodes", higherEntries.size());
 
             ExecutorService higherNodeElectionExecutor = Executors.newSingleThreadExecutor();
             List<Future<Boolean>> aliveResponses = higherEntries.stream().map(entry -> higherNodeElectionExecutor.submit(() -> {
@@ -83,28 +88,30 @@ public class BullyElector implements Elector, HttpHandler {
                 HttpURLConnection con = (HttpURLConnection) url.openConnection();
                 con.setRequestMethod("POST");
                 con.setDoOutput(true);
-                con.setConnectTimeout(3000);
                 con.getOutputStream().close();
                 return con.getResponseCode() == HttpURLConnection.HTTP_OK;
             })).collect(Collectors.toList());
             higherNodeElectionExecutor.shutdown();
-            higherNodeElectionExecutor.awaitTermination(5, TimeUnit.SECONDS);
+            higherNodeElectionExecutor.awaitTermination(2, TimeUnit.SECONDS);
 
+            logger.info("Processing election responses...");
             boolean oneAlive = false;
             for (Future<Boolean> aliveResponse : aliveResponses) {
                 try {
-                    if (Boolean.TRUE.equals(aliveResponse.get())) {
+                    if (Boolean.TRUE.equals(aliveResponse.get(2, TimeUnit.SECONDS))) {
+                        logger.debug("One alive!");
                         oneAlive = true;
                         break;
+                    }else{
+                        logger.debug("One not alive.");
                     }
                 }catch(Exception e) {
-                    logger.debug("Error when calling higher nodes", e);
+                    logger.error("Error when calling higher node", e);
                 }
             }
 
             if (oneAlive) {
                 logger.info("Received at least one live response, waiting for a victory message from on high.");
-                victoryMessageWaitExecutor.shutdown();
                 victoryMessageWaitExecutor.awaitTermination(5, TimeUnit.SECONDS);
                 VictoryMessage victoryMessage = victoryMessageFuture.get();
                 if (victoryMessage != null) {

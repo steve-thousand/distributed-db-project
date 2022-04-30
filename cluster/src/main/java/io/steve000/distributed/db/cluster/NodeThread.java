@@ -1,13 +1,19 @@
 package io.steve000.distributed.db.cluster;
 
+import io.steve000.distributed.db.cluster.http.ClusterHttpClient;
+import io.steve000.distributed.db.registry.api.RegistryEntry;
+import io.steve000.distributed.db.registry.api.RegistryResponse;
+import io.steve000.distributed.db.registry.client.RegistryClient;
+import io.steve000.distributed.db.registry.client.RegistryException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
-import java.util.concurrent.ExecutorService;
+import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.Executors;
-
-import static java.lang.Thread.sleep;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class NodeThread implements Closeable {
 
@@ -15,37 +21,63 @@ public class NodeThread implements Closeable {
 
     private final ClusterService clusterService;
 
+    private final RegistryClient registryClient;
+
+    private final ClusterHttpClient clusterHttpClient;
+
     private final long clusterThreadPeriodMs;
 
-    private boolean stopped = false;
+    private ScheduledExecutorService executorService;
 
-    public NodeThread(ClusterService clusterService, long clusterThreadPeriodMs) {
+    public NodeThread(ClusterService clusterService, RegistryClient registryClient, ClusterHttpClient clusterHttpClient, long clusterThreadPeriodMs) {
         this.clusterService = clusterService;
+        this.registryClient = registryClient;
+        this.clusterHttpClient = clusterHttpClient;
         this.clusterThreadPeriodMs = clusterThreadPeriodMs;
     }
 
     public void run() {
-        ExecutorService executorService = Executors.newSingleThreadExecutor();
-        executorService.execute(() -> {
-            while (!stopped) {
-                try {
-                    Leader leader = clusterService.getLeader();
-                    if (leader.isSelf()) {
-                        //heart beat to followers
-                        clusterService.sendHeartBeats();
-                    }
-                    sleep(clusterThreadPeriodMs);
-                } catch (Exception e) {
-                    logger.error("Cluster thread error", e);
-                    throw new RuntimeException(e);
-                }
+        executorService = Executors.newScheduledThreadPool(2);
+
+        //one thread for periodic registry heartbeats
+        executorService.scheduleAtFixedRate(() -> {
+            try {
+                registryClient.sendRegistryHeartbeat();
+            } catch (RegistryException e) {
+                logger.error("Cluster thread error", e);
             }
-        });
-        executorService.shutdown();
+        }, 0, clusterThreadPeriodMs, TimeUnit.MILLISECONDS);
+
+        //one thread for leader duties, which could interfere with registry heartbeats if it were in the same thread
+        executorService.scheduleAtFixedRate(() -> {
+            try {
+                Leader leader = clusterService.getLeader();
+                if (leader.isSelf()) {
+                    //heart beat to followers
+                    logger.debug("Node {} sending leader heartbeats...", leader.getName());
+                    sendHeartBeats();
+                }
+            } catch (Exception e) {
+                logger.error("Cluster thread error", e);
+                throw new RuntimeException(e);
+            }
+        }, 0, clusterThreadPeriodMs, TimeUnit.MILLISECONDS);
+    }
+
+    public void sendHeartBeats() {
+        try {
+            RegistryResponse response = registryClient.getRegistry();
+            List<RegistryEntry> registryEntries = response.getRegistryEntries();
+            clusterHttpClient.sendHeartBeats(registryEntries);
+        } catch (IOException e) {
+            logger.error("Failed sending leader heartbeats", e);
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
     public void close() {
-        stopped = true;
+        logger.info("Shutting down NodeThread.");
+        executorService.shutdownNow();
     }
 }

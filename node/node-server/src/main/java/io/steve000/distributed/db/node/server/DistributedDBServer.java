@@ -5,6 +5,7 @@ import io.steve000.distributed.db.cluster.ClusterConfig;
 import io.steve000.distributed.db.cluster.ClusterService;
 import io.steve000.distributed.db.cluster.SimpleClusterService;
 import io.steve000.distributed.db.cluster.election.bully.BullyElector;
+import io.steve000.distributed.db.cluster.http.ClusterHttpClient;
 import io.steve000.distributed.db.node.server.http.DBHttpHandler;
 import io.steve000.distributed.db.registry.client.RegistryClient;
 import org.slf4j.Logger;
@@ -26,9 +27,14 @@ public class DistributedDBServer {
 
         final String name = UUID.randomUUID().toString();
         ClusterConfig config = new ClusterConfig();
-        RegistryClient registryClient = new RegistryClient(dbArgs.registryAddress);
+        RegistryClient registryClient = new RegistryClient(dbArgs.registryAddress, name, dbArgs.adminPort);
+        ClusterHttpClient clusterHttpClient = new ClusterHttpClient(name, config.getCusterThreadPeriodMs());
         ClusterService clusterService = new SimpleClusterService(
-                config, new BullyElector(registryClient, server), registryClient, name
+                config,
+                new BullyElector(registryClient, server),
+                registryClient,
+                clusterHttpClient,
+                name
         );
 
         clusterService.bind(server);
@@ -38,7 +44,7 @@ public class DistributedDBServer {
         server.start();
 
         logger.info("Started DB server.");
-        clusterService.register(name, dbArgs.adminPort);
+        clusterService.run();
     }
 
 }
