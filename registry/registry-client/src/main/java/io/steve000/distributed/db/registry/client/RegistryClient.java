@@ -2,6 +2,7 @@ package io.steve000.distributed.db.registry.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.steve000.distributed.db.registry.api.RegisterRequest;
+import io.steve000.distributed.db.registry.api.RegistryEntry;
 import io.steve000.distributed.db.registry.api.RegistryResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,6 +62,12 @@ public class RegistryClient {
         }catch(Exception e) {
             throw new RegistryException(e);
         }
+    }
+
+    public RegistryEntry getRegistryEntryByName(String name) throws RegistryException {
+        return getRegistry().getRegistryEntries().stream()
+                .filter(r -> r.getName().equals(name))
+                .findFirst().orElseThrow(() -> new RegistryException("No registry entry found by name " + name));
     }
 
 }

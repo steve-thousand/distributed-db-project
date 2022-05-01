@@ -47,7 +47,7 @@ public class DistributedDBServer {
 
         clusterService.bind(server);
 
-        server.createContext("/db", new DBHttpHandler(dbService, clusterService.replicationService()));
+        server.createContext("/db", new DBHttpHandler(dbService, clusterService, registryClient));
         server.setExecutor(Executors.newFixedThreadPool(10));
         server.start();
 

@@ -101,16 +101,11 @@ It is my understanding of the leader/follower pattern that write requests should
 leader, which replicates data to the followers. In that way, read requests can be done against any
 node.
 
-I am looking into adding
-a [replicated log](https://martinfowler.com/articles/patterns-of-distributed-systems/replicated-log.html)
-. This seems like it will require
-a new piece of the communication layer. There will need to be a way that the leader can tell the
-followers to append changes to the entry.
+I have set up a simple replication layer. It is not fault-tolerant, and it is not transactional. But
+I've tested it locally with a cluster of 3 nodes (plus 1 register node). Writes go through the
+leader and then are successfully replicated to the followers.
 
-This will cause a little bit of an architecture headache I have to figure out. I was hoping to keep
-the cluster communication/consensus logic separate from the actual work that the cluster performs.
-Hopefully I can make the log replication separate enough from the data replication - or does that
-even make sense? Would I be doing a replication log if I _wasn't_ replicating data? Would if I am
-just partitioning data, or partitioning work like in a MapReduce cluster?
+I am also not sure what to do about replicating existing data to new nodes. It's one of my goals to
+be able to add new nodes to a cluster and have it replicate the data.
 
-TBD
+Future improvements will include making it durable and transactional.
