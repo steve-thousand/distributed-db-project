@@ -58,7 +58,7 @@ public class SimpleReplicationService implements ReplicationService{
                         throw new IOException("Bad response code: " + responseCode);
                     }
                 } catch (Exception e) {
-                    logger.error("Error replicating {} to entry {}", replicatable, entry);
+                    logger.error("Error replicating {} to entry {}", replicatable, entry, e);
                 }
             }
 

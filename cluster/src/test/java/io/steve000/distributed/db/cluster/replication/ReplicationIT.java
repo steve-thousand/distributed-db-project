@@ -18,7 +18,7 @@ import static org.mockito.Mockito.*;
 public class ReplicationIT {
 
     @Test
-    void test() throws ReplicationException, RegistryException, IOException {
+    void testReplicatingData() throws ReplicationException, RegistryException, IOException {
         try (
                 TestServer server1 = new TestServer();
                 TestServer server2 = new TestServer();
@@ -52,7 +52,7 @@ public class ReplicationIT {
         }
     }
 
-    private class TestServer implements Closeable {
+    private static class TestServer implements Closeable {
 
         private final int port;
 

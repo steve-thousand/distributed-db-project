@@ -30,6 +30,7 @@ public class DistributedDBServer {
 
         final String name = UUID.randomUUID().toString();
         ClusterConfig config = new ClusterConfig();
+        config.setName(name);
         RegistryClient registryClient = new RegistryClient(dbArgs.registryAddress, name, dbArgs.adminPort);
         ClusterHttpClient clusterHttpClient = new ClusterHttpClient(name, config.getCusterThreadPeriodMs());
 

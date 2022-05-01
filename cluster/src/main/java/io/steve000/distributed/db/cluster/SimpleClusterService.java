@@ -7,6 +7,7 @@ import io.steve000.distributed.db.cluster.http.ClusterHttpHandler;
 import io.steve000.distributed.db.cluster.replication.ReplicationHandler;
 import io.steve000.distributed.db.cluster.replication.ReplicationHttpHandler;
 import io.steve000.distributed.db.cluster.replication.ReplicationService;
+import io.steve000.distributed.db.cluster.replication.SimpleReplicationService;
 import io.steve000.distributed.db.registry.client.RegistryClient;
 import io.steve000.distributed.db.registry.client.RegistryException;
 import org.slf4j.Logger;
@@ -37,6 +38,8 @@ public class SimpleClusterService implements ClusterService {
 
     private final ReplicationHandler replicationHandler;
 
+    private final ReplicationService replicationService;
+
     private Leader leader;
 
     private LocalDateTime latestHeartBeat = null;
@@ -50,6 +53,7 @@ public class SimpleClusterService implements ClusterService {
         this.clusterHttpClient = builder.clusterHttpClient;
         this.replicationHandler = builder.replicationHandler;
         this.replicationStatus = new ReplicationStatus(builder.config.getName());
+        replicationService = new SimpleReplicationService(replicationHandler, registryClient, config.getName());
         latestHeartBeatThreshold = Duration.of(config.getCusterThreadPeriodMs() * 5, ChronoUnit.MILLIS);
     }
 
@@ -127,7 +131,7 @@ public class SimpleClusterService implements ClusterService {
 
     @Override
     public ReplicationService replicationService() {
-        throw new RuntimeException("Not implemented!");
+        return replicationService;
     }
 
     private boolean isLeaderLive() {

@@ -1,5 +1,6 @@
 package io.steve000.distributed.db.node.server.http;
 
+import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import io.steve000.distributed.db.cluster.replication.Replicatable;
@@ -10,7 +11,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.net.URI;
 
 public class DBHttpHandler implements HttpHandler {
 
@@ -27,7 +27,7 @@ public class DBHttpHandler implements HttpHandler {
 
     public void handle(HttpExchange httpExchange) throws IOException {
         if ("GET".equals(httpExchange.getRequestMethod())) {
-            final String key = getKeyFromUri(httpExchange.getRequestURI());
+            final String key = getKeyFromUri(httpExchange);
             final String value = dbService.get(key);
             if (value == null) {
                 httpExchange.sendResponseHeaders(404, 0);
@@ -41,7 +41,7 @@ public class DBHttpHandler implements HttpHandler {
             //TODO do it
 
             //if we are the leader, this is a write action, but will require replication to followers
-            final String key = getKeyFromUri(httpExchange.getRequestURI());
+            final String key = getKeyFromUri(httpExchange);
             final String value = getValueFromBody(httpExchange);
 
             try {
@@ -57,8 +57,9 @@ public class DBHttpHandler implements HttpHandler {
         httpExchange.getResponseBody().close();
     }
 
-    static String getKeyFromUri(URI uri) {
-        return uri.getPath().substring(1);
+    static String getKeyFromUri(HttpExchange httpExchange) {
+        HttpContext context = httpExchange.getHttpContext();
+        return httpExchange.getRequestURI().getPath().replace(context.getPath(),"").substring(1);
     }
 
     static String getValueFromBody(HttpExchange httpExchange) throws IOException {
