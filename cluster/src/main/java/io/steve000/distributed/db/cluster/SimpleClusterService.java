@@ -4,6 +4,10 @@ import com.sun.net.httpserver.HttpServer;
 import io.steve000.distributed.db.cluster.election.Elector;
 import io.steve000.distributed.db.cluster.http.ClusterHttpClient;
 import io.steve000.distributed.db.cluster.http.ClusterHttpHandler;
+import io.steve000.distributed.db.cluster.replication.ReplicationHandler;
+import io.steve000.distributed.db.cluster.replication.ReplicationHttpHandler;
+import io.steve000.distributed.db.cluster.replication.ReplicationService;
+import io.steve000.distributed.db.cluster.replication.SimpleReplicationService;
 import io.steve000.distributed.db.registry.client.RegistryClient;
 import io.steve000.distributed.db.registry.client.RegistryException;
 import org.slf4j.Logger;
@@ -20,7 +24,7 @@ public class SimpleClusterService implements ClusterService {
 
     private static final Logger logger = LoggerFactory.getLogger(SimpleClusterService.class);
 
-    private final Duration LATEST_HEARTBEAT_THRESHOLD;
+    private final Duration latestHeartBeatThreshold;
 
     private final ClusterConfig config;
 
@@ -30,7 +34,11 @@ public class SimpleClusterService implements ClusterService {
 
     private final ClusterHttpClient clusterHttpClient;
 
-    private ReplicationStatus replicationStatus;
+    private final ReplicationStatus replicationStatus;
+
+    private final ReplicationHandler replicationHandler;
+
+    private final ReplicationService replicationService;
 
     private Leader leader;
 
@@ -38,18 +46,21 @@ public class SimpleClusterService implements ClusterService {
 
     private NodeThread nodeThread;
 
-    public SimpleClusterService(ClusterConfig config, Elector elector, RegistryClient registryClient, ClusterHttpClient clusterHttpClient, String name) {
-        this.config = config;
-        this.elector = elector;
-        this.registryClient = registryClient;
-        this.clusterHttpClient = clusterHttpClient;
-        this.replicationStatus = new ReplicationStatus(name, 0);
-        LATEST_HEARTBEAT_THRESHOLD = Duration.of(config.getCusterThreadPeriodMs() * 5, ChronoUnit.MILLIS);
+    private SimpleClusterService(Builder builder) {
+        this.config = builder.config;
+        this.elector = builder.elector;
+        this.registryClient = builder.registryClient;
+        this.clusterHttpClient = builder.clusterHttpClient;
+        this.replicationHandler = builder.replicationHandler;
+        this.replicationStatus = new ReplicationStatus(builder.config.getName());
+        replicationService = new SimpleReplicationService(replicationHandler, registryClient, config.getName());
+        latestHeartBeatThreshold = Duration.of(config.getCusterThreadPeriodMs() * 5, ChronoUnit.MILLIS);
     }
 
     @Override
     public void bind(HttpServer httpServer) {
         httpServer.createContext("/cluster", new ClusterHttpHandler(this));
+        httpServer.createContext("/cluster/replication", new ReplicationHttpHandler(replicationHandler));
     }
 
     @Override
@@ -83,7 +94,7 @@ public class SimpleClusterService implements ClusterService {
             //if leader is not live, elect new leader
             if (!isLeaderLive()) {
                 logger.info("Leader is not live, begin leader election process");
-                replicationStatus = replicationStatus.increment();
+                replicationStatus.increment();
                 this.leader = elector.electLeader(replicationStatus);
                 logger.info("Leader chosen: {}", leader);
             }
@@ -118,6 +129,11 @@ public class SimpleClusterService implements ClusterService {
         latestHeartBeat = LocalDateTime.now();
     }
 
+    @Override
+    public ReplicationService replicationService() {
+        return replicationService;
+    }
+
     private boolean isLeaderLive() {
         if (leader != null && leader.isSelf()) {
             return true;
@@ -126,7 +142,7 @@ public class SimpleClusterService implements ClusterService {
             return false;
         }
         Duration lastHeartBeatAge = Duration.between(this.latestHeartBeat, LocalDateTime.now());
-        return lastHeartBeatAge.compareTo(LATEST_HEARTBEAT_THRESHOLD) < 0;
+        return lastHeartBeatAge.compareTo(latestHeartBeatThreshold) < 0;
     }
 
     @Override
@@ -135,5 +151,51 @@ public class SimpleClusterService implements ClusterService {
             logger.info("Shutting down SimpleClusterService.");
             nodeThread.close();
         }
+    }
+
+    public static class Builder {
+
+        private ClusterConfig config;
+
+        private Elector elector;
+
+        private RegistryClient registryClient;
+
+        private ClusterHttpClient clusterHttpClient;
+
+        private ReplicationHandler replicationHandler;
+
+        public Builder withConfig(ClusterConfig val) {
+            this.config = val;
+            return this;
+        }
+
+        public Builder withElector(Elector val) {
+            this.elector = val;
+            return this;
+        }
+
+        public Builder withRegistryClient(RegistryClient val) {
+            this.registryClient = val;
+            return this;
+        }
+
+        public Builder withClusterHttpClient(ClusterHttpClient val) {
+            this.clusterHttpClient = val;
+            return this;
+        }
+
+        public Builder withReplicationHandler(ReplicationHandler val) {
+            this.replicationHandler = val;
+            return this;
+        }
+
+        public ClusterService build() {
+            if(clusterHttpClient == null) {
+                clusterHttpClient = new ClusterHttpClient(config.getName(), config.getCusterThreadPeriodMs());
+            }
+            return new SimpleClusterService(this);
+        }
+
     }
 }

@@ -6,7 +6,9 @@ distributed system, specifically a simple database.
 I plan to perform updates, providing the steps taken in each update here in the readme, as well as
 tagging each version in git.
 
-Oh, and by the way, don't use this anywhere for any reason.
+Oh, and by the way, don't use this anywhere for any reason. To clarify, I mean that I don't
+recommend that you rely on this code for anything you may be building. This is an educational
+project. You are free to use it in any way you want, but I make no guarantees.
 
 ## versions
 
@@ -87,6 +89,23 @@ the servers-being-lost territory, the registry and the servers that use it for s
 need some changes to be able to forget nodes, otherwise I'll end up with error logs endlessly.
 
 It wasn't easy and I'm sure there are race conditions lurking there somewhere but I've got it set
-up so that multiple nodes can be started with nothing but a registry parameter, and at run time 
+up so that multiple nodes can be started with nothing but a registry parameter, and at run time
 nodes will discover each-other, and a leader will be chosen. If the leader fails, a new leader
 will be chosen.
+
+### version 2.2.0
+
+Still working towards the goal of data replication.
+
+It is my understanding of the leader/follower pattern that write requests should go through the
+leader, which replicates data to the followers. In that way, read requests can be done against any
+node.
+
+I have set up a simple replication layer. It is not fault-tolerant, and it is not transactional. But
+I've tested it locally with a cluster of 3 nodes (plus 1 register node). Writes go through the
+leader and then are successfully replicated to the followers.
+
+I am also not sure what to do about replicating existing data to new nodes. It's one of my goals to
+be able to add new nodes to a cluster and have it replicate the data.
+
+Future improvements will include making it durable and transactional.

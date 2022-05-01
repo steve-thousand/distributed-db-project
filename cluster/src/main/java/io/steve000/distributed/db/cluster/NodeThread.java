@@ -9,7 +9,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -69,7 +68,7 @@ public class NodeThread implements Closeable {
             RegistryResponse response = registryClient.getRegistry();
             List<RegistryEntry> registryEntries = response.getRegistryEntries();
             clusterHttpClient.sendHeartBeats(registryEntries);
-        } catch (IOException e) {
+        } catch (RegistryException e) {
             logger.error("Failed sending leader heartbeats", e);
             throw new RuntimeException(e);
         }
