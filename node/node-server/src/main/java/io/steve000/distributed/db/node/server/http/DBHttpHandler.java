@@ -2,15 +2,28 @@ package io.steve000.distributed.db.node.server.http;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import io.steve000.distributed.db.node.server.db.DBInMemoryService;
+import io.steve000.distributed.db.cluster.replication.Replicatable;
+import io.steve000.distributed.db.cluster.replication.ReplicationException;
+import io.steve000.distributed.db.cluster.replication.ReplicationService;
 import io.steve000.distributed.db.node.server.db.DBService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
 
 public class DBHttpHandler implements HttpHandler {
 
-    private final DBService dbService = new DBInMemoryService();
+    private static final Logger logger = LoggerFactory.getLogger(DBHttpHandler.class);
+
+    private final DBService dbService;
+
+    private final ReplicationService replicationService;
+
+    public DBHttpHandler(DBService dbService, ReplicationService replicationService) {
+        this.dbService = dbService;
+        this.replicationService = replicationService;
+    }
 
     public void handle(HttpExchange httpExchange) throws IOException {
         if ("GET".equals(httpExchange.getRequestMethod())) {
@@ -24,9 +37,20 @@ public class DBHttpHandler implements HttpHandler {
                 httpExchange.getResponseBody().write(charArray, 0, charArray.length);
             }
         } else if ("POST".equals(httpExchange.getRequestMethod())) {
+            //if we are not the leader, forward to leader
+            //TODO do it
+
+            //if we are the leader, this is a write action, but will require replication to followers
             final String key = getKeyFromUri(httpExchange.getRequestURI());
             final String value = getValueFromBody(httpExchange);
-            dbService.set(key, value);
+
+            try {
+                replicationService.replicate(new Replicatable(key, value));
+            }catch(ReplicationException e) {
+                logger.error("Error encountered in replication", e);
+                httpExchange.sendResponseHeaders(500, 0);
+            }
+
             httpExchange.sendResponseHeaders(201, 0);
         }
         httpExchange.getResponseBody().flush();

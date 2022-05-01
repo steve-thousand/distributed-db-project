@@ -4,7 +4,11 @@ public class ReplicationStatus {
 
     private final String name;
 
-    private final int generation;
+    private int generation;
+
+    public ReplicationStatus(String name) {
+        this(name, 0);
+    }
 
     public ReplicationStatus(String name, int generation) {
         this.name = name;
@@ -19,7 +23,8 @@ public class ReplicationStatus {
         return generation;
     }
 
-    public ReplicationStatus increment() {
-        return new ReplicationStatus(name, getGeneration() + 1);
+    public void increment() {
+        //TODO atomic
+        generation++;
     }
 }

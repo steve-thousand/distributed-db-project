@@ -6,7 +6,9 @@ distributed system, specifically a simple database.
 I plan to perform updates, providing the steps taken in each update here in the readme, as well as
 tagging each version in git.
 
-Oh, and by the way, don't use this anywhere for any reason.
+Oh, and by the way, don't use this anywhere for any reason. To clarify, I mean that I don't
+recommend that you rely on this code for anything you may be building. This is an educational
+project. You are free to use it in any way you want, but I make no guarantees.
 
 ## versions
 
@@ -87,6 +89,28 @@ the servers-being-lost territory, the registry and the servers that use it for s
 need some changes to be able to forget nodes, otherwise I'll end up with error logs endlessly.
 
 It wasn't easy and I'm sure there are race conditions lurking there somewhere but I've got it set
-up so that multiple nodes can be started with nothing but a registry parameter, and at run time 
+up so that multiple nodes can be started with nothing but a registry parameter, and at run time
 nodes will discover each-other, and a leader will be chosen. If the leader fails, a new leader
 will be chosen.
+
+### version 2.2.0
+
+Still working towards the goal of data replication.
+
+It is my understanding of the leader/follower pattern that write requests should go through the
+leader, which replicates data to the followers. In that way, read requests can be done against any
+node.
+
+I am looking into adding
+a [replicated log](https://martinfowler.com/articles/patterns-of-distributed-systems/replicated-log.html)
+. This seems like it will require
+a new piece of the communication layer. There will need to be a way that the leader can tell the
+followers to append changes to the entry.
+
+This will cause a little bit of an architecture headache I have to figure out. I was hoping to keep
+the cluster communication/consensus logic separate from the actual work that the cluster performs.
+Hopefully I can make the log replication separate enough from the data replication - or does that
+even make sense? Would I be doing a replication log if I _wasn't_ replicating data? Would if I am
+just partitioning data, or partitioning work like in a MapReduce cluster?
+
+TBD

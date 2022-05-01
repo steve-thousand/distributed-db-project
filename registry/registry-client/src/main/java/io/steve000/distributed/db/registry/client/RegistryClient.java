@@ -6,7 +6,6 @@ import io.steve000.distributed.db.registry.api.RegistryResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
@@ -48,16 +47,20 @@ public class RegistryClient {
         }
     }
 
-    public RegistryResponse getRegistry() throws IOException {
-        URL url = new URL(registryHost + "/");
-        HttpURLConnection con = (HttpURLConnection) url.openConnection();
-        con.setRequestMethod("GET");
+    public RegistryResponse getRegistry() throws RegistryException {
+        try {
+            URL url = new URL(registryHost + "/");
+            HttpURLConnection con = (HttpURLConnection) url.openConnection();
+            con.setRequestMethod("GET");
 
-        if(con.getResponseCode() != 200) {
-            throw new RuntimeException("Registry error");
+            if (con.getResponseCode() != 200) {
+                throw new RuntimeException("Registry error");
+            }
+
+            return objectMapper.readValue(con.getInputStream(), RegistryResponse.class);
+        }catch(Exception e) {
+            throw new RegistryException(e);
         }
-
-        return objectMapper.readValue(con.getInputStream(), RegistryResponse.class);
     }
 
 }

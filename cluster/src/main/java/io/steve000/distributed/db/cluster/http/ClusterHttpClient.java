@@ -32,7 +32,7 @@ public class ClusterHttpClient {
             ExecutorService executor = Executors.newSingleThreadExecutor();
             HeartBeat heartBeat = new HeartBeat(name);
             for (RegistryEntry entry : registryEntries) {
-                if (entry.getName().equals(heartBeat.getName())) {
+                if (entry.getName().equals(name)) {
                     continue;
                 }
                 executor.execute(() -> {

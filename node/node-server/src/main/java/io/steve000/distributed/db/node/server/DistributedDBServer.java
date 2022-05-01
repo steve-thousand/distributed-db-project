@@ -6,6 +6,9 @@ import io.steve000.distributed.db.cluster.ClusterService;
 import io.steve000.distributed.db.cluster.SimpleClusterService;
 import io.steve000.distributed.db.cluster.election.bully.BullyElector;
 import io.steve000.distributed.db.cluster.http.ClusterHttpClient;
+import io.steve000.distributed.db.cluster.replication.ReplicationHandler;
+import io.steve000.distributed.db.node.server.db.DBInMemoryService;
+import io.steve000.distributed.db.node.server.db.DBService;
 import io.steve000.distributed.db.node.server.http.DBHttpHandler;
 import io.steve000.distributed.db.registry.client.RegistryClient;
 import org.slf4j.Logger;
@@ -29,17 +32,21 @@ public class DistributedDBServer {
         ClusterConfig config = new ClusterConfig();
         RegistryClient registryClient = new RegistryClient(dbArgs.registryAddress, name, dbArgs.adminPort);
         ClusterHttpClient clusterHttpClient = new ClusterHttpClient(name, config.getCusterThreadPeriodMs());
-        ClusterService clusterService = new SimpleClusterService(
-                config,
-                new BullyElector(registryClient, server),
-                registryClient,
-                clusterHttpClient,
-                name
-        );
+
+        DBService dbService = new DBInMemoryService();
+        ReplicationHandler replicationHandler = new DBReplicationHandler(dbService);
+
+        ClusterService clusterService = new SimpleClusterService.Builder()
+                .withConfig(config)
+                .withElector(new BullyElector(registryClient, server))
+                .withRegistryClient(registryClient)
+                .withClusterHttpClient(clusterHttpClient)
+                .withReplicationHandler(replicationHandler)
+                .build();
 
         clusterService.bind(server);
 
-        server.createContext("/db", new DBHttpHandler());
+        server.createContext("/db", new DBHttpHandler(dbService, clusterService.replicationService()));
         server.setExecutor(Executors.newFixedThreadPool(10));
         server.start();
 

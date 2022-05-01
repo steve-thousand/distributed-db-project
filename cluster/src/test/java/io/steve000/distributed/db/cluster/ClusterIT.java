@@ -163,6 +163,7 @@ public class ClusterIT {
 
             ClusterConfig config = new ClusterConfig();
             config.setCusterThreadPeriodMs(50);
+            config.setName(name);
 
             RegistryClient registryClient = new RegistryClient(registryHost, name, port);
             ClusterHttpClient clusterHttpClient = new ClusterHttpClient(name, config.getCusterThreadPeriodMs());
@@ -170,7 +171,13 @@ public class ClusterIT {
 
             Elector elector = new BullyElector(registryClient, httpServer);
 
-            clusterService = new SimpleClusterService(config, elector, registryClient, clusterHttpClient, name);
+            clusterService = new SimpleClusterService.Builder()
+                    .withConfig(config)
+                    .withElector(elector)
+                    .withRegistryClient(registryClient)
+                    .withClusterHttpClient(clusterHttpClient)
+                    .build();
+
             new HttpServerCluster(httpServer, clusterService);
             httpServer.setExecutor(Executors.newFixedThreadPool(2));
             httpServer.start();
