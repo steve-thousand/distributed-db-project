@@ -4,10 +4,8 @@ import com.sun.net.httpserver.HttpServer;
 import io.steve000.distributed.db.cluster.election.Elector;
 import io.steve000.distributed.db.cluster.http.ClusterHttpClient;
 import io.steve000.distributed.db.cluster.http.ClusterHttpHandler;
-import io.steve000.distributed.db.cluster.replication.ReplicationHandler;
-import io.steve000.distributed.db.cluster.replication.ReplicationHttpHandler;
-import io.steve000.distributed.db.cluster.replication.ReplicationService;
-import io.steve000.distributed.db.cluster.replication.SimpleReplicationService;
+import io.steve000.distributed.db.cluster.replication.*;
+import io.steve000.distributed.db.cluster.replication.log.ReplicationLog;
 import io.steve000.distributed.db.registry.client.RegistryClient;
 import io.steve000.distributed.db.registry.client.RegistryException;
 import org.slf4j.Logger;
@@ -51,8 +49,8 @@ public class SimpleClusterService implements ClusterService {
         this.elector = builder.elector;
         this.registryClient = builder.registryClient;
         this.clusterHttpClient = builder.clusterHttpClient;
-        this.replicationHandler = builder.replicationHandler;
-        this.replicationStatus = new ReplicationStatus(builder.config.getName());
+        replicationHandler = new ReplicationHandler(ReplicationLog.open(), builder.replicationReceiver);
+        replicationStatus = new ReplicationStatus(builder.config.getName());
         replicationService = new SimpleReplicationService(replicationHandler, registryClient, config.getName());
         latestHeartBeatThreshold = Duration.of(config.getCusterThreadPeriodMs() * 5, ChronoUnit.MILLIS);
     }
@@ -146,10 +144,11 @@ public class SimpleClusterService implements ClusterService {
     }
 
     @Override
-    public void close() {
+    public void close() throws Exception {
         if (nodeThread != null) {
             logger.info("Shutting down SimpleClusterService.");
             nodeThread.close();
+            replicationHandler.close();
         }
     }
 
@@ -163,7 +162,7 @@ public class SimpleClusterService implements ClusterService {
 
         private ClusterHttpClient clusterHttpClient;
 
-        private ReplicationHandler replicationHandler;
+        private ReplicationReceiver replicationReceiver;
 
         public Builder withConfig(ClusterConfig val) {
             this.config = val;
@@ -185,8 +184,8 @@ public class SimpleClusterService implements ClusterService {
             return this;
         }
 
-        public Builder withReplicationHandler(ReplicationHandler val) {
-            this.replicationHandler = val;
+        public Builder withReplicationReceiver(ReplicationReceiver val) {
+            this.replicationReceiver = val;
             return this;
         }
 

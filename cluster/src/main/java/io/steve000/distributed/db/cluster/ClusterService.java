@@ -3,9 +3,7 @@ package io.steve000.distributed.db.cluster;
 import com.sun.net.httpserver.HttpServer;
 import io.steve000.distributed.db.cluster.replication.ReplicationService;
 
-import java.io.Closeable;
-
-public interface ClusterService extends Closeable {
+public interface ClusterService extends AutoCloseable {
 
     void bind(HttpServer httpServer);
 

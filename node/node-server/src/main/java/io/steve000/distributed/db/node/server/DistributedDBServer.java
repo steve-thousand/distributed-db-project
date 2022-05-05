@@ -6,7 +6,7 @@ import io.steve000.distributed.db.cluster.ClusterService;
 import io.steve000.distributed.db.cluster.SimpleClusterService;
 import io.steve000.distributed.db.cluster.election.bully.BullyElector;
 import io.steve000.distributed.db.cluster.http.ClusterHttpClient;
-import io.steve000.distributed.db.cluster.replication.ReplicationHandler;
+import io.steve000.distributed.db.cluster.replication.ReplicationReceiver;
 import io.steve000.distributed.db.node.server.db.DBInMemoryService;
 import io.steve000.distributed.db.node.server.db.DBService;
 import io.steve000.distributed.db.node.server.http.DBHttpHandler;
@@ -35,14 +35,14 @@ public class DistributedDBServer {
         ClusterHttpClient clusterHttpClient = new ClusterHttpClient(name, config.getCusterThreadPeriodMs());
 
         DBService dbService = new DBInMemoryService();
-        ReplicationHandler replicationHandler = new DBReplicationHandler(dbService);
+        ReplicationReceiver replicationReceiver = new DBReplicationReceiver(dbService);
 
         ClusterService clusterService = new SimpleClusterService.Builder()
                 .withConfig(config)
                 .withElector(new BullyElector(registryClient, server))
                 .withRegistryClient(registryClient)
                 .withClusterHttpClient(clusterHttpClient)
-                .withReplicationHandler(replicationHandler)
+                .withReplicationReceiver(replicationReceiver)
                 .build();
 
         clusterService.bind(server);

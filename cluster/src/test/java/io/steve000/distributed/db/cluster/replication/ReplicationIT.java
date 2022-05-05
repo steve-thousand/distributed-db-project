@@ -1,6 +1,7 @@
 package io.steve000.distributed.db.cluster.replication;
 
 import com.sun.net.httpserver.HttpServer;
+import io.steve000.distributed.db.cluster.replication.log.ReplicationLog;
 import io.steve000.distributed.db.common.NetworkUtils;
 import io.steve000.distributed.db.registry.api.RegistryEntry;
 import io.steve000.distributed.db.registry.api.RegistryResponse;
@@ -12,19 +13,24 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
 public class ReplicationIT {
 
     @Test
-    void testReplicatingData() throws ReplicationException, RegistryException, IOException {
+    void testReplicatingData() throws ReplicationException, RegistryException, IOException, InterruptedException {
         try (
                 TestServer server1 = new TestServer();
                 TestServer server2 = new TestServer();
                 TestServer server3 = new TestServer()
         ) {
-            ReplicationHandler replicationHandler = mock(ReplicationHandler.class);
+            TestReplicationReceiver replicationReceiver = new TestReplicationReceiver();
+            ReplicationHandler replicationHandler = new ReplicationHandler(ReplicationLog.open(), replicationReceiver);
 
             RegistryClient registryClient = mock(RegistryClient.class);
             when(registryClient.getRegistry()).thenReturn(new RegistryResponse(
@@ -39,16 +45,20 @@ public class ReplicationIT {
             ReplicationService replicationService = new SimpleReplicationService(replicationHandler, registryClient, "self");
 
             Replicatable replicatable = new Replicatable("event", "something");
-
             replicationService.replicate(replicatable);
 
-            //assert that our handler was called
-            verify(replicationHandler, times(1)).handleReplication(replicatable);
+            assertEquals(replicatable, replicationReceiver.receivedReplicatableQueue.poll(5, TimeUnit.SECONDS));
+            assertEquals(replicatable, server1.replicationReceiver.receivedReplicatableQueue.poll(5, TimeUnit.SECONDS));
+            assertEquals(replicatable, server2.replicationReceiver.receivedReplicatableQueue.poll(5, TimeUnit.SECONDS));
+            assertEquals(replicatable, server3.replicationReceiver.receivedReplicatableQueue.poll(5, TimeUnit.SECONDS));
 
-            //assert that all other handlers were called
-            verify(server1.replicationHandler, times(1)).handleReplication(replicatable);
-            verify(server2.replicationHandler, times(1)).handleReplication(replicatable);
-            verify(server3.replicationHandler, times(1)).handleReplication(replicatable);
+            replicatable = new Replicatable("event2", "something else");
+            replicationService.replicate(replicatable);
+
+            assertEquals(replicatable, replicationReceiver.receivedReplicatableQueue.poll(5, TimeUnit.SECONDS));
+            assertEquals(replicatable, server1.replicationReceiver.receivedReplicatableQueue.poll(5, TimeUnit.SECONDS));
+            assertEquals(replicatable, server2.replicationReceiver.receivedReplicatableQueue.poll(5, TimeUnit.SECONDS));
+            assertEquals(replicatable, server3.replicationReceiver.receivedReplicatableQueue.poll(5, TimeUnit.SECONDS));
         }
     }
 
@@ -58,11 +68,15 @@ public class ReplicationIT {
 
         private final ReplicationHandler replicationHandler;
 
-        private HttpServer httpServer;
+        private final HttpServer httpServer;
+
+        private final TestReplicationReceiver replicationReceiver;
 
         public TestServer() throws IOException {
             port = NetworkUtils.findOpenPort();
-            this.replicationHandler = mock(ReplicationHandler.class);
+            replicationReceiver = new TestReplicationReceiver();
+            this.replicationHandler = new ReplicationHandler(ReplicationLog.open(), replicationReceiver);
+            spy(this.replicationHandler);
             httpServer = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
             httpServer.createContext("/cluster/replication", new ReplicationHttpHandler(replicationHandler));
             httpServer.start();
@@ -71,6 +85,16 @@ public class ReplicationIT {
         @Override
         public void close() {
             httpServer.stop(0);
+        }
+    }
+
+    private static class TestReplicationReceiver implements ReplicationReceiver {
+
+        final BlockingQueue<Replicatable> receivedReplicatableQueue = new LinkedBlockingDeque<>(5);
+
+        @Override
+        public void receiveReplication(Replicatable replicatable) {
+            receivedReplicatableQueue.offer(replicatable);
         }
     }
 
