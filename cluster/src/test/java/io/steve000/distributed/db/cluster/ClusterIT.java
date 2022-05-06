@@ -178,7 +178,7 @@ public class ClusterIT {
                     .withClusterHttpClient(clusterHttpClient)
                     .build();
 
-            new HttpServerCluster(httpServer, clusterService);
+            clusterService.bind(httpServer);
             httpServer.setExecutor(Executors.newFixedThreadPool(2));
             httpServer.start();
         }

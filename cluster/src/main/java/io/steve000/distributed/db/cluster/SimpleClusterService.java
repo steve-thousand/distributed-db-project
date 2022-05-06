@@ -6,8 +6,8 @@ import io.steve000.distributed.db.cluster.http.ClusterHttpClient;
 import io.steve000.distributed.db.cluster.http.ClusterHttpHandler;
 import io.steve000.distributed.db.cluster.replication.*;
 import io.steve000.distributed.db.cluster.replication.log.ReplicationLog;
+import io.steve000.distributed.db.registry.api.RegistryEntry;
 import io.steve000.distributed.db.registry.client.RegistryClient;
-import io.steve000.distributed.db.registry.client.RegistryException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -107,10 +107,13 @@ public class SimpleClusterService implements ClusterService {
     public synchronized void run() {
         try {
             registryClient.sendRegistryHeartbeat();
-            getLeader(); //prime the leader info before running
+            Leader leader = getLeader(); //prime the leader info before running
+            if (!leader.isSelf()) {
+                replicationHandler.sync(leader);
+            }
             nodeThread = new NodeThread(this, registryClient, clusterHttpClient, config.getCusterThreadPeriodMs());
             nodeThread.run();
-        } catch (RegistryException e) {
+        } catch (Exception e) {
             logger.error("Error un startup", e);
             throw new RuntimeException(e);
         }
@@ -118,13 +121,17 @@ public class SimpleClusterService implements ClusterService {
 
     @Override
     public void handleHeartBeat(HeartBeat heartBeat) {
-        logger.debug("Node {} received leader heartbeat from leader {}.", replicationStatus.getName(), heartBeat.getName());
-        if (leader == null || !leader.getName().equals(heartBeat.getName())) {
-            leader = new Leader(heartBeat.getName(), false);
-            logger.info("New leader chosen: {}", leader);
+        try {
+            logger.debug("Node {} received leader heartbeat from leader {}.", replicationStatus.getName(), heartBeat.getName());
+            if (leader == null || !leader.getName().equals(heartBeat.getName())) {
+                RegistryEntry entry = registryClient.getRegistryEntryByName(heartBeat.getName());
+                leader = new Leader(heartBeat.getName(), false, entry.getHost(), entry.getPort());
+                logger.info("New leader chosen: {}", leader);
+            }
+            latestHeartBeat = LocalDateTime.now();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to handle heartbeat", e);
         }
-        leader = new Leader(heartBeat.getName(), false);
-        latestHeartBeat = LocalDateTime.now();
     }
 
     @Override
@@ -190,7 +197,7 @@ public class SimpleClusterService implements ClusterService {
         }
 
         public ClusterService build() {
-            if(clusterHttpClient == null) {
+            if (clusterHttpClient == null) {
                 clusterHttpClient = new ClusterHttpClient(config.getName(), config.getCusterThreadPeriodMs());
             }
             return new SimpleClusterService(this);

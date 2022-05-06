@@ -5,12 +5,10 @@ import io.steve000.distributed.db.cluster.replication.ReplicationLogException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.Scanner;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -41,10 +39,43 @@ public class ReplicationLog implements Closeable {
         blockingQueue = new LinkedBlockingDeque<>(10);
     }
 
+    public void sync(InputStream inputStream) throws ReplicationLogException {
+        try (Scanner scanner = new Scanner(inputStream)) {
+            Base64.Decoder decoder = Base64.getDecoder();
+            while (scanner.hasNext()) {
+                String line = scanner.next();
+                String[] parts = line.split(",");
+                Replicatable replicatable = new Replicatable(
+                        new String(decoder.decode(parts[0])),
+                        new String(decoder.decode(parts[1]))
+                );
+                append(replicatable);
+                commit();
+            }
+        }
+    }
+
+    public void sync(OutputStream outputStream) throws IOException {
+        try (Scanner scanner = new Scanner(file);
+             OutputStreamWriter writer = new OutputStreamWriter(outputStream)) {
+            String line;
+            while (scanner.hasNext()) {
+                line = scanner.next();
+                if (line.startsWith("COMMIT-")) {
+                    continue;
+                }
+                writer.write(line);
+                writer.write('\n');
+            }
+            writer.flush();
+        }
+    }
+
     public void append(Replicatable replicatable) throws ReplicationLogException {
         readWriteLock.writeLock().lock();
         try {
             fileWriter.write(buildLogLine(replicatable));
+            fileWriter.flush();
             this.lastReplicatable = replicatable;
         } catch (IOException e) {
             throw new ReplicationLogException("Failed to append to log", e);
@@ -56,13 +87,11 @@ public class ReplicationLog implements Closeable {
     public void commit() throws ReplicationLogException {
         readWriteLock.writeLock().lock();
         try {
-            commitNumber++;
-            fileWriter.write("COMMIT-" + commitNumber + "\n");
-            fileWriter.flush();
             blockingQueue.put(lastReplicatable);
+            commitNumber++;
             lastReplicatable = null;
             logger.info("Replication log commit {}", commitNumber);
-        } catch (IOException | InterruptedException e) {
+        } catch (InterruptedException e) {
             throw new ReplicationLogException("Failed to commit index" + commitNumber, e);
         } finally {
             readWriteLock.writeLock().unlock();

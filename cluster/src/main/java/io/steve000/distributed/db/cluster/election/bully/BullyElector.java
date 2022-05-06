@@ -45,14 +45,15 @@ public class BullyElector implements Elector, HttpHandler {
                     .filter(e -> e.getName().compareTo(replicationStatus.getName()) > 0)
                     .collect(Collectors.toList());
 
-            if(higherEntries.size() > 0) {
-                Leader foundHigherLeader = findHigherLeader(higherEntries);
-                if (foundHigherLeader != null) {
-                    return foundHigherLeader;
+            if (higherEntries.size() > 0) {
+                VictoryMessage victoryMessage = waitForHigherVictoryMessage(higherEntries);
+                if (victoryMessage != null) {
+                    RegistryEntry entry = registryClient.getRegistryEntryByName(victoryMessage.getName());
+                    return new Leader(victoryMessage.getName(), false, entry.getHost(), entry.getPort());
                 }
                 //if we get no responses, all higher nodes are down, and we are the leader! tell everyone
                 logger.info("Found no higher leader, we ({}) are the leader now!", replicationStatus.getName());
-            }else{
+            } else {
                 logger.info("No higher nodes, we ({}) are the leader now!", replicationStatus.getName());
             }
 
@@ -60,13 +61,15 @@ public class BullyElector implements Elector, HttpHandler {
             sendVictoryMessages(registryEntries.stream()
                     .filter(e -> e.getName().compareTo(replicationStatus.getName()) < 0)
                     .collect(Collectors.toList()), victoryMessage);
-            return new Leader(replicationStatus.getName(), true);
+
+            RegistryEntry entry = registryClient.getRegistryEntryByName(replicationStatus.getName());
+            return new Leader(replicationStatus.getName(), true, entry.getHost(), entry.getPort());
         } catch (Exception e) {
             throw new ElectionException(e);
         }
     }
 
-    private Leader findHigherLeader(List<RegistryEntry> higherEntries) throws ElectionException {
+    private VictoryMessage waitForHigherVictoryMessage(List<RegistryEntry> higherEntries) throws ElectionException {
         try {
             ExecutorService victoryMessageWaitExecutor = Executors.newSingleThreadExecutor();
             Future<VictoryMessage> victoryMessageFuture = victoryMessageWaitExecutor.submit(() -> {
@@ -102,10 +105,10 @@ public class BullyElector implements Elector, HttpHandler {
                         logger.debug("One alive!");
                         oneAlive = true;
                         break;
-                    }else{
+                    } else {
                         logger.debug("One not alive.");
                     }
-                }catch(Exception e) {
+                } catch (Exception e) {
                     logger.error("Error when calling higher node", e);
                 }
             }
@@ -116,7 +119,7 @@ public class BullyElector implements Elector, HttpHandler {
                 VictoryMessage victoryMessage = victoryMessageFuture.get();
                 if (victoryMessage != null) {
                     logger.debug("Received a victory message! {}", victoryMessage);
-                    return new Leader(victoryMessage.getName(), false);
+                    return victoryMessage;
                 }
             } else {
                 logger.info("Found no live responses in time.");
@@ -130,11 +133,11 @@ public class BullyElector implements Elector, HttpHandler {
 
     void sendVictoryMessages(List<RegistryEntry> entries, VictoryMessage victoryMessage) throws InterruptedException {
         ExecutorService victoryMessageWaitExecutor = Executors.newSingleThreadExecutor();
-        for(RegistryEntry entry: entries) {
+        for (RegistryEntry entry : entries) {
             victoryMessageWaitExecutor.submit(() -> {
                 try {
                     sendVictoryMessage(entry, victoryMessage);
-                }catch(Exception e) {
+                } catch (Exception e) {
                     logger.error("Failed to send victory to entry {}", entry);
                 }
             });
@@ -157,10 +160,9 @@ public class BullyElector implements Elector, HttpHandler {
     @Override
     public void handle(HttpExchange exchange) throws IOException {
         if ("POST".equals(exchange.getRequestMethod())) {
-            if(exchange.getRequestURI().getPath().replace(exchange.getHttpContext().getPath(), "").equals("/victory")){
+            if (exchange.getRequestURI().getPath().replace(exchange.getHttpContext().getPath(), "").equals("/victory")) {
                 victoryMessage = JSON.OBJECT_MAPPER.readValue(exchange.getRequestBody(), VictoryMessage.class);
                 logger.info("Received victory message! {}", victoryMessage);
-                Leader leader = new Leader(victoryMessage.getName(), false);
                 exchange.sendResponseHeaders(200, 0);
                 exchange.getResponseBody().close();
             }

@@ -27,11 +27,7 @@ public class ReplicationLogTest {
             line = scanner.next();
             assertEquals("dGVzdA==,c29tZXRoaW5n", line);
             line = scanner.next();
-            assertEquals("COMMIT-1", line);
-            line = scanner.next();
             assertEquals("aGVsbG8=,Ynll", line);
-            line = scanner.next();
-            assertEquals("COMMIT-2", line);
             assertFalse(scanner.hasNext());
         }
     }

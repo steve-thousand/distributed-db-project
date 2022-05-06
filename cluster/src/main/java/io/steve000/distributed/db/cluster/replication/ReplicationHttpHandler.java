@@ -26,6 +26,9 @@ public class ReplicationHttpHandler implements HttpHandler {
             }if (path.equals("/commit")) {
                 replicationHandler.commit();
                 exchange.sendResponseHeaders(202, 0);
+            }if (path.equals("/sync")) {
+                exchange.sendResponseHeaders(200, 0);
+                replicationHandler.sync(exchange.getResponseBody());
             }
         } catch (Exception e) {
             exchange.sendResponseHeaders(500, 0);
