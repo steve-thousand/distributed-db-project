@@ -8,9 +8,15 @@ public class Leader {
 
     private final boolean self;
 
-    public Leader(String name, boolean self) {
+    private final String host;
+
+    private final int port;
+
+    public Leader(String name, boolean self, String host, int port) {
         this.name = name;
         this.self = self;
+        this.host = host;
+        this.port = port;
     }
 
     public String getName() {
@@ -21,12 +27,12 @@ public class Leader {
         return self;
     }
 
-    @Override
-    public String toString() {
-        return "Leader{" +
-                "name='" + name + '\'' +
-                ", self=" + self +
-                '}';
+    public String getHost() {
+        return host;
+    }
+
+    public int getPort() {
+        return port;
     }
 
     @Override
@@ -34,11 +40,21 @@ public class Leader {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Leader leader = (Leader) o;
-        return self == leader.self && Objects.equals(name, leader.name);
+        return self == leader.self && port == leader.port && Objects.equals(name, leader.name) && Objects.equals(host, leader.host);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(name, self);
+        return Objects.hash(name, self, host, port);
+    }
+
+    @Override
+    public String toString() {
+        return "Leader{" +
+                "name='" + name + '\'' +
+                ", self=" + self +
+                ", host='" + host + '\'' +
+                ", port=" + port +
+                '}';
     }
 }

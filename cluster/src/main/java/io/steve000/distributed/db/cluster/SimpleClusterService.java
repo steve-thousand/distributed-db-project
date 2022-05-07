@@ -4,12 +4,10 @@ import com.sun.net.httpserver.HttpServer;
 import io.steve000.distributed.db.cluster.election.Elector;
 import io.steve000.distributed.db.cluster.http.ClusterHttpClient;
 import io.steve000.distributed.db.cluster.http.ClusterHttpHandler;
-import io.steve000.distributed.db.cluster.replication.ReplicationHandler;
-import io.steve000.distributed.db.cluster.replication.ReplicationHttpHandler;
-import io.steve000.distributed.db.cluster.replication.ReplicationService;
-import io.steve000.distributed.db.cluster.replication.SimpleReplicationService;
+import io.steve000.distributed.db.cluster.replication.*;
+import io.steve000.distributed.db.cluster.replication.log.ReplicationLog;
+import io.steve000.distributed.db.registry.api.RegistryEntry;
 import io.steve000.distributed.db.registry.client.RegistryClient;
-import io.steve000.distributed.db.registry.client.RegistryException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,8 +49,8 @@ public class SimpleClusterService implements ClusterService {
         this.elector = builder.elector;
         this.registryClient = builder.registryClient;
         this.clusterHttpClient = builder.clusterHttpClient;
-        this.replicationHandler = builder.replicationHandler;
-        this.replicationStatus = new ReplicationStatus(builder.config.getName());
+        replicationHandler = new ReplicationHandler(ReplicationLog.open(), builder.replicationReceiver);
+        replicationStatus = new ReplicationStatus(builder.config.getName());
         replicationService = new SimpleReplicationService(replicationHandler, registryClient, config.getName());
         latestHeartBeatThreshold = Duration.of(config.getCusterThreadPeriodMs() * 5, ChronoUnit.MILLIS);
     }
@@ -109,10 +107,13 @@ public class SimpleClusterService implements ClusterService {
     public synchronized void run() {
         try {
             registryClient.sendRegistryHeartbeat();
-            getLeader(); //prime the leader info before running
+            Leader leader = getLeader(); //prime the leader info before running
+            if (!leader.isSelf()) {
+                replicationHandler.sync(leader);
+            }
             nodeThread = new NodeThread(this, registryClient, clusterHttpClient, config.getCusterThreadPeriodMs());
             nodeThread.run();
-        } catch (RegistryException e) {
+        } catch (Exception e) {
             logger.error("Error un startup", e);
             throw new RuntimeException(e);
         }
@@ -120,13 +121,17 @@ public class SimpleClusterService implements ClusterService {
 
     @Override
     public void handleHeartBeat(HeartBeat heartBeat) {
-        logger.debug("Node {} received leader heartbeat from leader {}.", replicationStatus.getName(), heartBeat.getName());
-        if (leader == null || !leader.getName().equals(heartBeat.getName())) {
-            leader = new Leader(heartBeat.getName(), false);
-            logger.info("New leader chosen: {}", leader);
+        try {
+            logger.debug("Node {} received leader heartbeat from leader {}.", replicationStatus.getName(), heartBeat.getName());
+            if (leader == null || !leader.getName().equals(heartBeat.getName())) {
+                RegistryEntry entry = registryClient.getRegistryEntryByName(heartBeat.getName());
+                leader = new Leader(heartBeat.getName(), false, entry.getHost(), entry.getPort());
+                logger.info("New leader chosen: {}", leader);
+            }
+            latestHeartBeat = LocalDateTime.now();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to handle heartbeat", e);
         }
-        leader = new Leader(heartBeat.getName(), false);
-        latestHeartBeat = LocalDateTime.now();
     }
 
     @Override
@@ -146,10 +151,11 @@ public class SimpleClusterService implements ClusterService {
     }
 
     @Override
-    public void close() {
+    public void close() throws Exception {
         if (nodeThread != null) {
             logger.info("Shutting down SimpleClusterService.");
             nodeThread.close();
+            replicationHandler.close();
         }
     }
 
@@ -163,7 +169,7 @@ public class SimpleClusterService implements ClusterService {
 
         private ClusterHttpClient clusterHttpClient;
 
-        private ReplicationHandler replicationHandler;
+        private ReplicationReceiver replicationReceiver;
 
         public Builder withConfig(ClusterConfig val) {
             this.config = val;
@@ -185,13 +191,13 @@ public class SimpleClusterService implements ClusterService {
             return this;
         }
 
-        public Builder withReplicationHandler(ReplicationHandler val) {
-            this.replicationHandler = val;
+        public Builder withReplicationReceiver(ReplicationReceiver val) {
+            this.replicationReceiver = val;
             return this;
         }
 
         public ClusterService build() {
-            if(clusterHttpClient == null) {
+            if (clusterHttpClient == null) {
                 clusterHttpClient = new ClusterHttpClient(config.getName(), config.getCusterThreadPeriodMs());
             }
             return new SimpleClusterService(this);

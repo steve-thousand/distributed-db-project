@@ -82,7 +82,7 @@ public class ClusterIT {
     }
 
     @Test
-    void testElectionOccursAfterLeaderDeath() throws IOException, InterruptedException {
+    void testElectionOccursAfterLeaderDeath() throws Exception {
         try (
                 TestServer server1 = new TestServer("test-server-1");
                 TestServer server2 = new TestServer("test-server-2")
@@ -105,7 +105,7 @@ public class ClusterIT {
     }
 
     @Test
-    void testElectionOccursAfterLeaderDeath_multipleFollowers() throws IOException, InterruptedException {
+    void testElectionOccursAfterLeaderDeath_multipleFollowers() throws Exception {
         try (
                 TestServer server1 = new TestServer("test-server-1");
                 TestServer server2 = new TestServer("test-server-2");
@@ -178,7 +178,7 @@ public class ClusterIT {
                     .withClusterHttpClient(clusterHttpClient)
                     .build();
 
-            new HttpServerCluster(httpServer, clusterService);
+            clusterService.bind(httpServer);
             httpServer.setExecutor(Executors.newFixedThreadPool(2));
             httpServer.start();
         }
@@ -187,7 +187,7 @@ public class ClusterIT {
             clusterService.run();
         }
 
-        public void kill() throws IOException {
+        public void kill() throws Exception {
             httpServer.stop(0);
             clusterService.close();
         }
@@ -204,7 +204,7 @@ public class ClusterIT {
         public void close() {
             try {
                 kill();
-            } catch (IOException e) {
+            } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }
