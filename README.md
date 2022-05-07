@@ -109,3 +109,19 @@ I am also not sure what to do about replicating existing data to new nodes. It's
 be able to add new nodes to a cluster and have it replicate the data.
 
 Future improvements will include making it durable and transactional.
+
+### version 3.0.0
+
+To enable replication and ensure consensus across nodes, I am using [the raft
+algorithm](https://en.wikipedia.org/wiki/Raft_(algorithm)), or at least some
+half-baked form of it. Each node has a replication log, and the leader sends
+client actions to each follower to be appended to their logs. Only once all
+(or ideally a majority) of followers have successfully appended to their logs
+does the leader commit to its log, performing the entry action and responding to
+the client. At that point followers are told to commit as well.
+
+[This is a pretty awesome visual demonstration of the raft algorithm](http://thesecretlivesofdata.com/raft/)
+
+I've also set it up so that new nodes can request a replication log sync with
+the leader. This sync action could be used to repair disagreements between
+nodes as well.
