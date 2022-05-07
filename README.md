@@ -12,7 +12,16 @@ project. You are free to use it in any way you want, but I make no guarantees.
 
 ## versions
 
-### version 1.0.0
+Unfortunately when I set this up, I didn't really have much of a plan for how these versions would
+be decided, so the version system here is a little confusing.
+
+* [version 1.0.0 - Just a Simple Key/Value Datastore](#1-0-0)
+* [version 2.0.0 - Registry Service, and Service Discovery](#2-0-0)
+* [version 2.1.0 - Leader and Follower, the Bully Algorithm](#2-1-0)
+* [version 2.2.0 - Simple Replication](#2-2-0)
+* [version 3.0.0 - Replication Write-Ahead, the Raft Algorithm](#3-0-0)
+
+<h3 id="1-0-0">version 1.0.0 - Just a Simple Key/Value Datastore</h3>
 
 A simple client and server architecture for reading and writing key/value pairs. Data is stored only
 in memory. Persistence will come in later version.
@@ -24,7 +33,7 @@ just using some native java classes for server/http stuff.
 This is hardly a database and certainly not distributed, but making it persistent and consistent is
 next.
 
-### version 2.0.0
+<h3 id="2-0-0">version 2.0.0 - Registry Service, and Service Discovery</h3>
 
 Ok so this was a big one. I got a little carried away with reorganizing the project.
 
@@ -55,7 +64,7 @@ And the node registers itself with the registry
 [pool-1-thread-1] INFO io.steve000.distributed.db.registry.server.InMemoryRegistry - Registered node 7a735fec-2a39-471c-9f49-f719f6c5b36b at IP 172.17.0.3:8050
 ```
 
-### version 2.1.0
+<h3 id="2-1-0">version 2.1.0 - Leader and Follower, the Bully Algorithm</h3>
 
 Sorry that this ended up being such a big one. This includes adding a new "cluster" module that
 includes the code that will be used by each node to discover and communicate. Making it its own
@@ -93,7 +102,7 @@ up so that multiple nodes can be started with nothing but a registry parameter, 
 nodes will discover each-other, and a leader will be chosen. If the leader fails, a new leader
 will be chosen.
 
-### version 2.2.0
+<h3 id="2-2-0">version 2.2.0 - Simple Replication</h3>
 
 Still working towards the goal of data replication.
 
@@ -110,7 +119,7 @@ be able to add new nodes to a cluster and have it replicate the data.
 
 Future improvements will include making it durable and transactional.
 
-### version 3.0.0
+<h3 id="3-0-0">version 3.0.0 - Replication Write-Ahead, the Raft Algorithm</h3>
 
 To enable replication and ensure consensus across nodes, I am using [the raft
 algorithm](https://en.wikipedia.org/wiki/Raft_(algorithm)), or at least some
